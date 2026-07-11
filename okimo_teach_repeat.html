@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<title>OKIMO-NAVI T&R — 教示・再生ナビ試作</title>
+<style>
+  /* ============================================================
+     OKIMO-NAVI Teach & Repeat prototype
+     計器盤スタイル: 暗背景・高コントラスト・巨大インジケータ
+     ============================================================ */
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --panel2:#1b2129; --line:#2a323c;
+    --ink:#e8ecef; --dim:#8b97a3;
+    --teach:#f5a524;   /* 教示モード = 琥珀 */
+    --repeat:#3ddc97;  /* 再生モード = 緑 */
+    --warn:#ff5d5d;    /* ロスト/停止 = 赤 */
+    --goal:#6ab7ff;    /* 到着 = 青 */
+    --mono:"SF Mono","Roboto Mono",ui-monospace,monospace;
+    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{max-width:560px;margin:0 auto;padding:10px 12px 40px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 10px}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.06em}
+  header h1 small{color:var(--dim);font-weight:400;font-size:11px;margin-left:6px}
+  #modeBadge{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:999px;
+    border:1px solid var(--line);color:var(--dim)}
+  #modeBadge.teach{border-color:var(--teach);color:var(--teach)}
+  #modeBadge.repeat{border-color:var(--repeat);color:var(--repeat)}
+
+  /* --- カメラ --- */
+  .cam{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+  video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+  /* --- 巨大インジケータ(signature) --- */
+  #indicator{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 16px;min-height:118px;
+    transition:border-color .2s}
+  #glyph{font-size:64px;line-height:1;font-weight:700;font-family:var(--mono)}
+  #sigText{text-align:right}
+  #sigLetter{font-family:var(--mono);font-size:30px;font-weight:700}
+  #sigMorse{font-family:var(--mono);font-size:20px;letter-spacing:.2em;color:var(--dim)}
+  #sigLabel{font-size:12px;color:var(--dim);margin-top:2px}
+  #indicator.c-go{border-color:var(--repeat)} #indicator.c-go #glyph{color:var(--repeat)}
+  #indicator.c-turn{border-color:var(--teach)} #indicator.c-turn #glyph{color:var(--teach)}
+  #indicator.c-stop{border-color:var(--warn)} #indicator.c-stop #glyph{color:var(--warn)}
+  #indicator.c-goal{border-color:var(--goal)} #indicator.c-goal #glyph{color:var(--goal)}
+
+  /* --- ステータス行 --- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .stat b{display:block;font-family:var(--mono);font-size:18px}
+  .stat span{font-size:10px;color:var(--dim)}
+  meter{width:100%;height:8px}
+
+  /* --- 操作 --- */
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button{flex:1;min-width:120px;padding:14px 10px;font-size:15px;font-weight:700;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--goal);outline-offset:2px}
+  button.primary-teach{background:var(--teach);border-color:var(--teach);color:#1a1204}
+  button.primary-repeat{background:var(--repeat);border-color:var(--repeat);color:#04160e}
+  button.stop{background:var(--warn);border-color:var(--warn);color:#fff}
+  button:disabled{opacity:.35;cursor:default}
+  .row.small button{flex:1;padding:9px;font-size:13px;font-weight:500}
+
+  /* --- 設定 --- */
+  details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  summary{padding:10px 12px;font-size:13px;color:var(--dim);cursor:pointer}
+  .setbox{padding:2px 12px 12px;display:grid;gap:10px}
+  .setline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+  .setline input[type=text]{flex:1;font-family:var(--mono);font-size:12px;padding:8px;border-radius:6px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .setline input[type=checkbox]{width:20px;height:20px}
+  #wsDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dim);margin-right:5px}
+  #wsDot.on{background:var(--repeat)}
+
+  /* --- キーフレーム帯 --- */
+  #kfStrip{display:flex;gap:5px;overflow-x:auto;margin-top:10px;padding:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;min-height:64px}
+  #kfStrip img{height:52px;border-radius:4px;border:2px solid transparent;flex:0 0 auto}
+  #kfStrip img.now{border-color:var(--repeat)}
+  #kfStrip .empty{color:var(--dim);font-size:12px;align-self:center;padding:0 8px}
+
+  #log{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;white-space:pre-wrap;
+    max-height:90px;overflow-y:auto}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OKIMO-NAVI T&amp;R<small>教示・再生ナビ 試作 v0.1</small></h1>
+  <span id="modeBadge">待機</span>
+</header>
+
+<div class="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+</div>
+
+<!-- 巨大方向インジケータ -->
+<div id="indicator" aria-live="polite">
+  <div id="glyph">·</div>
+  <div id="sigText">
+    <div id="sigLetter">—</div>
+    <div id="sigMorse"></div>
+    <div id="sigLabel">カメラ起動待ち</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="stKF">0 / 0</b><span>キーフレーム</span></div>
+  <div class="stat"><b id="stCorr">—</b><span>一致度<meter id="mCorr" min="0" max="1" low="0.35" high="0.6" optimum="0.9" value="0"></meter></span></div>
+  <div class="stat"><b id="stShift">—</b><span>横ズレ (列)</span></div>
+</div>
+
+<div class="row">
+  <button id="btnTeach" class="primary-teach">● 教示開始</button>
+  <button id="btnRepeat" class="primary-repeat" disabled>▶ 案内開始</button>
+</div>
+<div class="row small">
+  <button id="btnExport" disabled>ルート書き出し</button>
+  <button id="btnImport">ルート読み込み</button>
+  <button id="btnClear" disabled>消去</button>
+  <input type="file" id="fileIn" accept=".json" hidden>
+</div>
+
+<div id="kfStrip"><span class="empty">キーフレームはここに並びます（教示するか、ルートを読み込んでください）</span></div>
+
+<details>
+  <summary>出力・調整</summary>
+  <div class="setbox">
+    <div class="setline"><span>振動（モールス）</span><input type="checkbox" id="optVib" checked></div>
+    <div class="setline"><span>音（600Hz ビープ）</span><input type="checkbox" id="optSnd"></div>
+    <div class="setline"><span><span id="wsDot"></span>PICO 2W WebSocket</span><input type="checkbox" id="optWS"></div>
+    <div class="setline"><input type="text" id="wsUrl" value="ws://192.168.4.1/ws" aria-label="WebSocket URL"></div>
+    <div class="setline"><span>直進とみなすズレ幅（±列）</span><input type="text" id="optDead" value="5" style="max-width:60px"></div>
+    <div class="setline"><span>キーフレーム保存しきい値</span><input type="text" id="optSave" value="0.78" style="max-width:60px"></div>
+  </div>
+</details>
+
+<div id="log"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   OKIMO-NAVI Teach & Repeat 最小実装（依存ライブラリなし）
+   原理:
+   1) 各フレームを 96x72 グレースケールに縮小
+   2) 水平方向エッジ強度を列ごとに合計 → 96次元の「1Dプロファイル」
+      （照明変化に強く、廊下のドア・柱・窓が主なランドマークになる）
+   3) 教示: プロファイルが前キーフレームと十分ずれたら新規保存
+   4) 再生: 現在プロファイルと keyframe[i], [i+1] を±シフト相関で照合
+      - 最良シフト → 左右ズレ → L / R / K(直進) を出力
+      - corr(i+1) > corr(i) なら i を前進、最終KFで O(到着)
+      - 一致度が低い状態が続けば S(停止・ロスト)
+   モールス割当（PICO 2W 準拠, K はアマチュア無線の「送れ=進め」）:
+      K -.-   直進OK   / L .-.. 左へ / R .-. 右へ
+      S ...   停止     / O --- 目的地到着
+   ================================================================ */
+
+// ---------- 定数 ----------
+const PW = 96, PH = 72;          // 処理解像度
+const MAX_SHIFT = 28;            // 相関探索のシフト範囲(列)
+const PROC_MS = 120;             // 処理間隔 ≈ 8fps
+const MIN_KF_MS = 700;           // 教示時キーフレーム最短間隔
+const LOST_TH = 0.35;            // これ未満が続けばロスト
+const LOST_MS = 2000;
+const ADVANCE_TH = 0.45;         // 次KFへ進む最低一致度
+const REPEAT_SIGNAL_MS = 2500;   // 同一信号の再送間隔
+
+const MORSE = { K:"-.-", L:".-..", R:".-.", S:"...", O:"---" };
+const LABEL = { K:"直進", L:"左へ", R:"右へ", S:"停止・見失い", O:"目的地に到着" };
+const GLYPH = { K:"↑", L:"←", R:"→", S:"■", O:"◎" };
+const CLS   = { K:"c-go", L:"c-turn", R:"c-turn", S:"c-stop", O:"c-goal" };
+
+// ---------- 状態 ----------
+let mode = "idle";               // idle | teach | repeat
+let route = [];                  // [{profile:Float32Array, thumb:dataURL}]
+let kfIndex = 0;                 // 再生中の現在キーフレーム
+let lastKFTime = 0, lostSince = 0;
+let lastSignal = "", lastSignalTime = 0;
+let ws = null, audioCtx = null;
+
+// ---------- DOM ----------
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay");
+const work = document.createElement("canvas"); work.width = PW; work.height = PH;
+const wctx = work.getContext("2d", { willReadFrequently:true });
+
+function log(s){ const el=$("log"); el.textContent=(new Date().toTimeString().slice(0,8))+" "+s+"\n"+el.textContent.slice(0,1500); }
+
+// ---------- カメラ ----------
+async function initCam(){
+  try{
+    const st = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:"environment", width:{ideal:640}, height:{ideal:480} }, audio:false });
+    video.srcObject = st;
+    await video.play();
+    $("sigLabel").textContent = "準備完了";
+    log("カメラ起動 OK");
+    requestAnimationFrame(loop);
+  }catch(e){
+    $("sigLabel").textContent = "カメラ不可: " + e.name;
+    log("getUserMedia 失敗: " + e.message + "（http://localhost 以外では動きません）");
+  }
+}
+
+// ---------- 画像 → 1Dエッジプロファイル ----------
+function grabProfile(){
+  wctx.drawImage(video, 0, 0, PW, PH);
+  const d = wctx.getImageData(0, 0, PW, PH).data;
+  const g = new Float32Array(PW * PH);
+  for(let i=0, p=0; i<d.length; i+=4, p++) g[p] = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+  // 列ごとの水平エッジ合計（|dI/dx|）
+  const prof = new Float32Array(PW);
+  for(let x=1; x<PW-1; x++){
+    let s = 0;
+    for(let y=0; y<PH; y++) s += Math.abs(g[y*PW + x+1] - g[y*PW + x-1]);
+    prof[x] = s;
+  }
+  // 正規化（平均0・分散1）→ 照明の明るさに不変
+  let m=0; for(let x=0;x<PW;x++) m+=prof[x]; m/=PW;
+  let v=0; for(let x=0;x<PW;x++){ prof[x]-=m; v+=prof[x]*prof[x]; }
+  v = Math.sqrt(v/PW) || 1;
+  for(let x=0;x<PW;x++) prof[x]/=v;
+  return prof;
+}
+
+// ---------- シフト付き相関: {corr, shift} ----------
+function matchShift(a, b){
+  let best = -2, bestS = 0;
+  for(let s=-MAX_SHIFT; s<=MAX_SHIFT; s++){
+    let c=0, n=0;
+    const lo = Math.max(0,-s), hi = Math.min(PW, PW-s);
+    for(let x=lo; x<hi; x++){ c += a[x]*b[x+s]; n++; }
+    c /= n;
+    if(c > best){ best=c; bestS=s; }
+  }
+  return { corr:best, shift:bestS };
+}
+
+// ---------- メインループ ----------
+let lastProc = 0;
+function loop(t){
+  requestAnimationFrame(loop);
+  if(t - lastProc < PROC_MS || video.readyState < 2) return;
+  lastProc = t;
+  const prof = grabProfile();
+
+  if(mode === "teach") stepTeach(prof, t);
+  else if(mode === "repeat") stepRepeat(prof, t);
+  drawOverlay(prof);
+}
+
+// ---------- 教示 ----------
+function stepTeach(prof, t){
+  const saveTh = parseFloat($("optSave").value) || 0.78;
+  if(route.length === 0){ saveKF(prof); return; }
+  const { corr } = matchShift(prof, route[route.length-1].profile);
+  setStats(route.length, corr, "—");
+  if(corr < saveTh && t - lastKFTime > MIN_KF_MS) saveKF(prof);
+}
+
+function saveKF(prof){
+  lastKFTime = performance.now();
+  const thumb = work.toDataURL("image/jpeg", 0.5);
+  route.push({ profile:prof, thumb });
+  const img = document.createElement("img"); img.src = thumb;
+  if(route.length === 1) $("kfStrip").innerHTML = "";
+  $("kfStrip").appendChild(img);
+  $("stKF").textContent = route.length + " 保存";
+  log("KF #" + route.length + " 保存");
+}
+
+// ---------- 再生 ----------
+function stepRepeat(prof, t){
+  const cur = matchShift(prof, route[kfIndex].profile);
+  let best = cur, bestIdx = kfIndex;
+  // 先読み（1つ飛ばしも許容 → 早歩きでも追従）
+  for(let k=1; k<=2; k++){
+    if(kfIndex + k < route.length){
+      const m = matchShift(prof, route[kfIndex+k].profile);
+      if(m.corr > best.corr && m.corr > ADVANCE_TH){ best = m; bestIdx = kfIndex + k; }
+    }
+  }
+  if(bestIdx !== kfIndex){
+    kfIndex = bestIdx;
+    markStrip();
+    log("→ KF #" + (kfIndex+1));
+  }
+  setStats(null, best.corr, best.shift);
+
+  // ロスト判定
+  if(best.corr < LOST_TH){
+    if(!lostSince) lostSince = t;
+    if(t - lostSince > LOST_MS){ emit("S"); return; }
+  }else lostSince = 0;
+
+  // 到着判定
+  if(kfIndex === route.length - 1 && best.corr > 0.6){
+    emit("O");
+    stopRepeat(true);
+    return;
+  }
+  // 操舵: 正のシフト = 記録映像が右にある = 右を向くべき
+  const dead = parseInt($("optDead").value) || 5;
+  emit(best.shift >  dead ? "R" : best.shift < -dead ? "L" : "K");
+}
+
+// ---------- 信号出力（画面・振動・音・WS） ----------
+function emit(code){
+  const now = performance.now();
+  if(code === lastSignal && now - lastSignalTime < REPEAT_SIGNAL_MS) return;
+  lastSignal = code; lastSignalTime = now;
+
+  $("glyph").textContent = GLYPH[code];
+  $("sigLetter").textContent = code;
+  $("sigMorse").textContent = MORSE[code].replace(/\./g,"·").replace(/-/g,"—");
+  $("sigLabel").textContent = LABEL[code];
+  $("indicator").className = CLS[code];
+
+  const pat = morsePattern(MORSE[code]);
+  if($("optVib").checked && navigator.vibrate) navigator.vibrate(pat);
+  if($("optSnd").checked) beepMorse(MORSE[code]);
+  if($("optWS").checked && ws && ws.readyState === 1){ try{ ws.send(code); }catch(e){} }
+}
+
+const DOT = 90, DASH = 270, GAP = 90;
+function morsePattern(m){
+  const p = [];
+  for(const c of m){ p.push(c === "." ? DOT : DASH); p.push(GAP); }
+  p.pop(); return p;
+}
+function beepMorse(m){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  let t = audioCtx.currentTime;
+  for(const c of m){
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 600; o.connect(g); g.connect(audioCtx.destination);
+    const dur = (c === "." ? DOT : DASH)/1000;
+    g.gain.setValueAtTime(0.25, t);
+    o.start(t); o.stop(t + dur);
+    t += dur + GAP/1000;
+  }
+}
+
+// ---------- オーバーレイ描画（プロファイルとズレ矢印） ----------
+function drawOverlay(prof){
+  const c = overlay, x = c.getContext("2d");
+  if(c.width !== c.clientWidth){ c.width = c.clientWidth; c.height = c.clientHeight; }
+  x.clearRect(0,0,c.width,c.height);
+  // プロファイル波形（下端）
+  x.strokeStyle = "rgba(61,220,151,.9)"; x.lineWidth = 1.5; x.beginPath();
+  for(let i=0;i<PW;i++){
+    const px = i/PW*c.width, py = c.height - 8 - Math.max(-2,Math.min(2,prof[i]))*12 - 24;
+    i ? x.lineTo(px,py) : x.moveTo(px,py);
+  }
+  x.stroke();
+  // 中心線と目標方向
+  x.strokeStyle = "rgba(255,255,255,.35)";
+  x.beginPath(); x.moveTo(c.width/2, 0); x.lineTo(c.width/2, c.height); x.stroke();
+  if(mode === "repeat" && $("stShift").textContent !== "—"){
+    const sh = parseInt($("stShift").textContent) || 0;
+    const tx = c.width/2 + sh/PW*c.width;
+    x.strokeStyle = "rgba(245,165,36,.95)"; x.lineWidth = 3;
+    x.beginPath(); x.moveTo(tx, c.height*0.25); x.lineTo(tx, c.height*0.75); x.stroke();
+  }
+}
+
+// ---------- 表示更新 ----------
+function setStats(kf, corr, shift){
+  if(kf !== null) $("stKF").textContent = (mode==="repeat" ? (kfIndex+1)+" / "+route.length : kf+" 保存");
+  if(mode === "repeat") $("stKF").textContent = (kfIndex+1)+" / "+route.length;
+  $("stCorr").textContent = corr.toFixed(2);
+  $("mCorr").value = Math.max(0, corr);
+  $("stShift").textContent = (shift === "—") ? "—" : String(shift);
+}
+function markStrip(){
+  [...$("kfStrip").querySelectorAll("img")].forEach((im,i)=> im.classList.toggle("now", i===kfIndex));
+}
+function setMode(m){
+  mode = m;
+  const b = $("modeBadge");
+  b.className = m === "teach" ? "teach" : m === "repeat" ? "repeat" : "";
+  b.textContent = m === "teach" ? "教示中" : m === "repeat" ? "案内中" : "待機";
+  $("btnTeach").textContent = m === "teach" ? "■ 教示終了" : "● 教示開始";
+  $("btnTeach").className = m === "teach" ? "stop" : "primary-teach";
+  $("btnRepeat").textContent = m === "repeat" ? "■ 案内停止" : "▶ 案内開始";
+  $("btnRepeat").className = m === "repeat" ? "stop" : "primary-repeat";
+  $("btnRepeat").disabled = (m === "teach") || route.length < 2;
+  $("btnTeach").disabled = (m === "repeat");
+  $("btnExport").disabled = $("btnClear").disabled = route.length === 0 || m !== "idle";
+}
+
+// ---------- ボタン ----------
+$("btnTeach").onclick = () => {
+  if(mode === "teach"){ setMode("idle"); log("教示終了: KF "+route.length+"枚"); }
+  else{
+    route = []; kfIndex = 0;
+    $("kfStrip").innerHTML = "";
+    setMode("teach");
+    $("sigLabel").textContent = "ルートを歩いてください";
+    $("indicator").className = "";
+    $("glyph").textContent = "●"; $("sigLetter").textContent = "REC"; $("sigMorse").textContent = "";
+    log("教示開始");
+  }
+};
+$("btnRepeat").onclick = () => {
+  if(mode === "repeat"){ stopRepeat(false); }
+  else{
+    kfIndex = 0; lostSince = 0; lastSignal = "";
+    setMode("repeat"); markStrip();
+    if($("optWS").checked) connectWS();
+    log("案内開始（"+route.length+" KF）");
+  }
+};
+function stopRepeat(goal){
+  setMode("idle");
+  if(!goal){ $("sigLabel").textContent = "案内停止"; $("indicator").className = ""; $("glyph").textContent="·"; }
+  log(goal ? "◎ 到着" : "案内停止");
+}
+$("btnClear").onclick = () => {
+  route = []; $("kfStrip").innerHTML = '<span class="empty">キーフレームはここに並びます</span>';
+  $("stKF").textContent = "0 / 0"; setMode("idle"); log("ルート消去");
+};
+
+// ---------- 書き出し / 読み込み ----------
+$("btnExport").onclick = () => {
+  const data = { v:1, created:new Date().toISOString(),
+    kf: route.map(k => ({ p:[...k.profile].map(x=>+x.toFixed(4)), t:k.thumb })) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:"application/json"}));
+  a.download = "okimo_route_" + Date.now() + ".json";
+  a.click();
+  log("ルート書き出し（"+route.length+" KF）");
+};
+$("btnImport").onclick = () => $("fileIn").click();
+$("fileIn").onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    route = data.kf.map(k => ({ profile:new Float32Array(k.p), thumb:k.t }));
+    $("kfStrip").innerHTML = "";
+    route.forEach(k => { const im = document.createElement("img"); im.src = k.thumb; $("kfStrip").appendChild(im); });
+    $("stKF").textContent = route.length + " 読込";
+    setMode("idle");
+    log("ルート読み込み: " + route.length + " KF");
+  }catch(err){ log("読み込み失敗: " + err.message); }
+};
+
+// ---------- PICO 2W WebSocket ----------
+function connectWS(){
+  try{
+    if(ws) ws.close();
+    ws = new WebSocket($("wsUrl").value);
+    ws.onopen  = () => { $("wsDot").className = "on"; log("PICO 接続 OK"); };
+    ws.onclose = () => { $("wsDot").className = ""; };
+    ws.onerror = () => { $("wsDot").className = ""; log("PICO 接続エラー"); };
+  }catch(e){ log("WS: " + e.message); }
+}
+$("optWS").onchange = e => { if(e.target.checked) connectWS(); else if(ws) ws.close(); };
+
+setMode("idle");
+initCam();
+</script>
+</body>
+</html>
