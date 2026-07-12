@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<title>OKIMO-NAVI T&R v6</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --panel2:#1b2129; --line:#2a323c;
+    --ink:#e8ecef; --dim:#8b97a3;
+    --teach:#f5a524; --repeat:#3ddc97; --warn:#ff5d5d; --goal:#6ab7ff; --avatar:#6ab7ff;
+    --mono:"SF Mono","Roboto Mono",ui-monospace,monospace;
+    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{max-width:560px;margin:0 auto;padding:10px 12px 40px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 10px;gap:8px}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.05em;flex:1}
+  header h1 small{color:var(--dim);font-weight:400;font-size:11px;margin-left:6px}
+  #btnLang{flex:0 0 auto;min-width:0;padding:5px 12px;font-size:12px;font-weight:700;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+  #modeBadge{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  #modeBadge.teach{border-color:var(--teach);color:var(--teach)}
+  #modeBadge.repeat{border-color:var(--repeat);color:var(--repeat)}
+  #modeBadge.avoid{border-color:var(--warn);color:var(--warn)}
+  .cam{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+  video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  #procView,#overlay{position:absolute;inset:0;width:100%;height:100%}
+  #procView{display:none}
+  #overlay{pointer-events:none}
+  #topCard{position:absolute;top:8px;left:8px;right:8px;color:#fff;font-weight:700;font-size:18px;
+    text-align:center;padding:9px;border-radius:8px;display:none;z-index:3}
+  #topCard.warn{display:block;background:rgba(255,93,93,.92)}
+  #topCard.slow{display:block;background:rgba(245,165,36,.92);color:#1a1204}
+  #topCard.idle{display:block;background:rgba(60,70,82,.85);font-weight:500;font-size:14px}
+  #indicator{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 16px;min-height:108px;transition:border-color .2s}
+  #glyph{font-size:58px;line-height:1;font-weight:700;font-family:var(--mono)}
+  #sigText{text-align:right}
+  #sigLetter{font-family:var(--mono);font-size:27px;font-weight:700}
+  #sigMorse{font-family:var(--mono);font-size:18px;letter-spacing:.2em;color:var(--dim)}
+  #sigLabel{font-size:12px;color:var(--dim);margin-top:2px}
+  #indicator.c-go{border-color:var(--repeat)} #indicator.c-go #glyph{color:var(--repeat)}
+  #indicator.c-turn{border-color:var(--teach)} #indicator.c-turn #glyph{color:var(--teach)}
+  #indicator.c-stop{border-color:var(--warn)} #indicator.c-stop #glyph{color:var(--warn)}
+  #indicator.c-goal{border-color:var(--goal)} #indicator.c-goal #glyph{color:var(--goal)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+  .stat b{display:block;font-family:var(--mono);font-size:15px}
+  .stat span{font-size:9px;color:var(--dim)}
+  .riskbars{display:flex;gap:3px;margin-top:3px;height:8px}
+  .riskbars i{flex:1;background:var(--line);border-radius:2px;overflow:hidden;position:relative}
+  .riskbars i b{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--repeat);display:block}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button{flex:1;min-width:110px;padding:13px 10px;font-size:15px;font-weight:700;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--goal);outline-offset:2px}
+  button.primary-teach{background:var(--teach);border-color:var(--teach);color:#1a1204}
+  button.primary-repeat{background:var(--repeat);border-color:var(--repeat);color:#04160e}
+  button.avoid{background:#7c3aed;border-color:#7c3aed;color:#fff}
+  button.stop{background:var(--warn);border-color:var(--warn);color:#fff}
+  button:disabled{opacity:.35;cursor:default}
+  .row.small button{flex:1;padding:9px;font-size:13px;font-weight:500}
+  #btnMotion{display:none;background:var(--goal);border-color:var(--goal);color:#04121f}
+  details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  summary{padding:10px 12px;font-size:13px;color:var(--dim);cursor:pointer;font-weight:700}
+  .setbox{padding:2px 12px 12px;display:grid;gap:11px}
+  .setline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+  .setline .val{font-family:var(--mono);font-size:12px;color:var(--dim);min-width:52px;text-align:right}
+  .setline input[type=text],.setline input[type=number]{flex:1;max-width:110px;font-family:var(--mono);font-size:13px;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .setline input[type=text].wide{max-width:none}
+  .setline input[type=checkbox]{width:22px;height:22px}
+  .setline input[type=range]{flex:1}
+  .setline select{font-size:13px;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  #wsDot,#bleDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dim);margin-right:5px}
+  #wsDot.on,#bleDot.on{background:var(--repeat)}
+  #btnBLE{flex:1;padding:11px;font-size:14px;background:var(--goal);border-color:var(--goal);color:#04121f}
+  .hint{font-size:11px;color:var(--dim);line-height:1.5}
+  #kfStrip{display:flex;gap:5px;overflow-x:auto;margin-top:10px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:64px}
+  #kfStrip img{height:52px;border-radius:4px;border:2px solid transparent;flex:0 0 auto}
+  #kfStrip img.now{border-color:var(--repeat)}
+  #kfStrip .empty{color:var(--dim);font-size:12px;align-self:center;padding:0 8px}
+  #log{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;white-space:pre-wrap;max-height:90px;overflow-y:auto}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OKIMO-NAVI T&amp;R<small>v6 · センサ融合</small></h1>
+  <button id="btnLang">EN</button>
+  <span id="modeBadge" data-i18n="mIdle">待機</span>
+</header>
+
+<div class="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="procView"></canvas>
+  <canvas id="overlay"></canvas>
+  <div id="topCard"></div>
+</div>
+
+<div id="indicator" aria-live="polite">
+  <div id="glyph">·</div>
+  <div id="sigText">
+    <div id="sigLetter">—</div>
+    <div id="sigMorse"></div>
+    <div id="sigLabel" data-i18n="waitCam">カメラ起動待ち</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="stKF">0/0</b><span data-i18n="stKF">キーフレーム</span></div>
+  <div class="stat"><b id="stCorr">—</b><span data-i18n="stCorr">一致度</span></div>
+  <div class="stat"><b id="stWalk">—</b><span data-i18n="stWalk">歩行</span></div>
+  <div class="stat"><b id="stRisk">—</b><span><span data-i18n="stRisk">リスク 左/中/右</span>
+    <span class="riskbars"><i><b id="rbL"></b></i><i><b id="rbC"></b></i><i><b id="rbR"></b></i></span></span>
+  </div>
+</div>
+
+<div class="stats" id="picoPanel" style="display:none">
+  <div class="stat"><b id="pFront">—</b><span data-i18n="picoFront">前方ToF (mm)</span></div>
+  <div class="stat"><b id="pFloor">—</b><span data-i18n="picoFloor">床距離 (mm)</span></div>
+  <div class="stat"><b id="pUS">—</b><span data-i18n="picoUS">超音波 (mm)</span></div>
+  <div class="stat"><b id="pCode">—</b><span data-i18n="picoCode">PICO判定</span></div>
+</div>
+
+<div class="row"><button id="btnMotion" data-i18n="btnMotion">📱 センサを許可（初回のみ）</button></div>
+<div class="row">
+  <button id="btnTeach" class="primary-teach" data-i18n="btnTeach">● 教示開始</button>
+  <button id="btnRepeat" class="primary-repeat" disabled data-i18n="btnRepeat">▶ 案内開始</button>
+</div>
+<div class="row"><button id="btnAvoid" class="avoid" data-i18n="btnAvoid">🚶 回避モード（ルートなし）</button></div>
+<div class="row small">
+  <button id="btnExport" disabled data-i18n="btnExport">ルート書き出し</button>
+  <button id="btnImport" data-i18n="btnImport">ルート読み込み</button>
+  <button id="btnClear" disabled data-i18n="btnClear">消去</button>
+  <input type="file" id="fileIn" accept=".json" hidden>
+</div>
+
+<div id="kfStrip"><span class="empty" data-i18n="kfEmpty">キーフレームはここに並びます</span></div>
+
+<!-- ============ アバター（体格） ============ -->
+<details open>
+  <summary data-i18n="secBody">🧍 アバター・体格設定</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="showAvatar">半透明アバターを表示</span><input type="checkbox" id="chkAvatar" checked></div>
+    <div class="setline"><span data-i18n="height">身長 (cm)</span><input type="number" id="inHeight" value="165" min="100" max="210"></div>
+    <div class="setline"><span data-i18n="weight">体重 (kg)</span><input type="number" id="inWeight" value="60" min="30" max="150"></div>
+    <div class="setline"><span data-i18n="margin">安全マージン (片側cm)</span><input type="range" id="rMargin" min="0" max="30" value="10"><span class="val" id="vMargin">10</span></div>
+    <div class="setline"><span data-i18n="refDist">判定基準距離 (m)</span><input type="range" id="rDist" min="10" max="30" value="15"><span class="val" id="vDist">1.5</span></div>
+    <div class="setline"><span data-i18n="bodyW">推定通過幅</span><span class="val" id="vBodyW">—</span></div>
+  </div>
+</details>
+
+<!-- ============ 検出・実験パラメータ ============ -->
+<details>
+  <summary data-i18n="secDetect">🔬 検出・実験パラメータ</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="sens">障害物検出の感度</span><input type="range" id="rSens" min="1" max="9" value="5"><span class="val" id="vSens">5</span></div>
+    <div class="setline"><span data-i18n="yTop">検出範囲 上端 (%)</span><input type="range" id="rYTop" min="5" max="50" value="25"><span class="val" id="vYTop">25</span></div>
+    <div class="setline"><span data-i18n="yBot">検出範囲 下端 (%)</span><input type="range" id="rYBot" min="60" max="98" value="88"><span class="val" id="vYBot">88</span></div>
+    <div class="setline"><span data-i18n="hold">警告の保持時間 (秒)</span><input type="range" id="rHold" min="5" max="50" value="15"><span class="val" id="vHold">1.5</span></div>
+    <div class="setline"><span data-i18n="useEdge">エッジ検出も使う</span><input type="checkbox" id="chkEdge" checked></div>
+    <div class="setline"><span data-i18n="edgeTh">二値化しきい値</span><input type="range" id="rEdgeTh" min="20" max="120" value="60"><span class="val" id="vEdgeTh">60</span></div>
+    <div class="setline"><span data-i18n="viewMode">画面表示</span>
+      <select id="selView">
+        <option value="normal" data-i18n="viewNormal">カメラ映像</option>
+        <option value="gray" data-i18n="viewGray">グレースケール</option>
+        <option value="edge" data-i18n="viewEdge">エッジ二値化</option>
+      </select>
+    </div>
+    <div class="setline"><span data-i18n="always">停止中も検出（手ブレ誤報あり）</span><input type="checkbox" id="chkAlways"></div>
+    <div class="setline"><span data-i18n="res">処理解像度</span>
+      <select id="selRes">
+        <option value="64" data-i18n="resL">低 64×48</option>
+        <option value="96" selected data-i18n="resM">中 96×72</option>
+        <option value="128" data-i18n="resH">高 128×96</option>
+      </select>
+    </div>
+  </div>
+</details>
+
+<!-- ============ 出力チャネル ============ -->
+<details>
+  <summary data-i18n="secOut">🔔 出力チャネル・モールス</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="outBuzz">ブザー（600Hzモールス）</span><input type="checkbox" id="optBuzz"></div>
+    <div class="setline"><span data-i18n="outVib">振動（モールス）</span><input type="checkbox" id="optVib" checked></div>
+    <div class="setline"><span data-i18n="outTTS">音声ガイダンス</span><input type="checkbox" id="optTTS" checked></div>
+    <div class="setline"><span><span id="bleDot"></span><span data-i18n="outBLE">モールス通電 BLE（PICO 2W）</span></span><input type="checkbox" id="optBLE"></div>
+    <div class="setline"><button id="btnBLE" data-i18n="btnBLE">🔗 BLE接続（OKIMO-PICO を選択）</button></div>
+    <div class="setline"><span><span id="wsDot"></span><span data-i18n="outWS">モールス通電（PICO 2W）</span></span><input type="checkbox" id="optWS"></div>
+    <div class="setline"><input type="text" id="wsUrl" class="wide" value="ws://192.168.4.1/ws" aria-label="WebSocket URL"></div>
+    <div class="setline"><span data-i18n="dotLen">打電の長さ 短点 (ms)</span><input type="range" id="rDot" min="40" max="160" value="90"><span class="val" id="vDot">90</span></div>
+    <div class="setline"><span data-i18n="fine">微調整モード（直進判定を厳しく）</span><input type="checkbox" id="chkFine"></div>
+    <div class="setline"><span data-i18n="wideK">K範囲拡大（多少ズレても直進）</span><input type="checkbox" id="chkWideK"></div>
+    <p class="hint" data-i18n="hintLimits">検出原理は運動視差＋エッジ密度です。ガラス・下り段差・暗所は検出できません。白杖の併用が前提です。</p>
+  </div>
+</details>
+
+<div id="log"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   OKIMO-NAVI T&R v6 — BLE双方向: PICOのToF/超音波を受信し映像検出と融合
+   追加: 体格アバター連動コリドー / 実験パラメータ / 出力4ch個別選択
+         日英切替 / グレー・エッジ二値化表示とエッジ密度検出
+   ================================================================ */
+
+// ---------------- i18n ----------------
+const T = {
+ ja:{
+  mIdle:"待機",mTeach:"教示中",mRepeat:"案内中",mAvoid:"回避のみ",
+  waitCam:"カメラ起動待ち",ready:"準備完了",
+  stKF:"キーフレーム",stCorr:"一致度",stWalk:"歩行",stRisk:"リスク 左/中/右",
+  btnMotion:"📱 センサを許可（初回のみ）",
+  btnTeach:"● 教示開始",btnTeachStop:"■ 教示終了",
+  btnRepeat:"▶ 案内開始",btnRepeatStop:"■ 案内停止",
+  btnAvoid:"🚶 回避モード（ルートなし）",btnAvoidStop:"■ 回避モード停止",
+  btnExport:"ルート書き出し",btnImport:"ルート読み込み",btnClear:"消去",
+  kfEmpty:"キーフレームはここに並びます",
+  secBody:"🧍 アバター・体格設定",showAvatar:"半透明アバターを表示",
+  height:"身長 (cm)",weight:"体重 (kg)",margin:"安全マージン (片側cm)",
+  refDist:"判定基準距離 (m)",bodyW:"推定通過幅",
+  secDetect:"🔬 検出・実験パラメータ",sens:"障害物検出の感度",
+  yTop:"検出範囲 上端 (%)",yBot:"検出範囲 下端 (%)",hold:"警告の保持時間 (秒)",
+  useEdge:"エッジ検出も使う",edgeTh:"二値化しきい値",viewMode:"画面表示",
+  viewNormal:"カメラ映像",viewGray:"グレースケール",viewEdge:"エッジ二値化",
+  always:"停止中も検出（手ブレ誤報あり）",res:"処理解像度",
+  resL:"低 64×48",resM:"中 96×72",resH:"高 128×96",
+  secOut:"🔔 出力チャネル・モールス",
+  outBuzz:"ブザー（600Hzモールス）",outVib:"振動（モールス）",outTTS:"音声ガイダンス",
+  picoFront:"前方ToF (mm)",picoFloor:"床距離 (mm)",picoUS:"超音波 (mm)",picoCode:"PICO判定",
+  cardPicoDrop:"⚠ センサ: 下り段差",cardPicoGlass:"⚠ センサ: ガラスの疑い",cardPicoFront:"⚠ センサ: 前方障害物",
+  sDrop:"ちゅうい、くだりだんさ",sGlass:"ちゅうい、ガラス",
+  outBLE:"モールス通電 BLE（PICO 2W）",btnBLE:"🔗 BLE接続（OKIMO-PICO を選択）",
+  bleNo:"このブラウザは Web Bluetooth 非対応です（iPhoneのSafari不可・Android Chrome推奨）",
+  bleOK:"BLE 接続OK",bleLost:"BLE 切断されました",
+  outWS:"モールス通電 WiFi（PICO 2W・localhost時のみ）",dotLen:"打電の長さ 短点 (ms)",
+  fine:"微調整モード（直進判定を厳しく）",wideK:"K範囲拡大（多少ズレても直進）",
+  hintLimits:"検出原理は運動視差＋エッジ密度です。ガラス・下り段差・暗所は検出できません。白杖の併用が前提です。",
+  lK:"直進",lL:"左へ",lR:"右へ",lS:"停止・見失い",lO:"目的地に到着",lSOS:"危険・停止",
+  cardStop:"⚠ 接触リスク大 — 停止",cardHold:"⚠ 停止 — 確認中",
+  cardFrontL:"正面に障害物 → 左へ",cardFrontR:"正面に障害物 → 右へ",
+  cardSlow:"前方注意 — ゆっくり",cardLeft:"左に障害物 → 右へ",cardRight:"右に障害物 → 左へ",
+  cardIdle:"停止中 — 検出休止（歩き出すと再開）",
+  sStopCheck:"とまって、かくにんしてください",sGo:"すすんでください",
+  sSlow:"ゆっくり",sBitL:"もうすこし、ひだり",sBitR:"もうすこし、みぎ",
+  sL:"ひだり",sR:"みぎ",sStop:"ていし",sArrive:"もくてきちに、とうちゃくしました",
+  walkNone:"ｾﾝｻ無",walkStop:"停止",walkSlow:"ゆっくり",walkNorm:"普通",walkFast:"速い",
+  teachGuide:"ルートを歩いてください",repStop:"案内停止",avStop:"停止しました",
+  logTeach:"教示開始",logTeachEnd:"教示終了",logRep:"案内開始",logArrive:"◎ 到着",
+  logAvoid:"回避モード開始 — 胸の前に固定して歩いてください",logAvoidEnd:"回避モード停止",
+  ttsLang:"ja-JP"
+ },
+ en:{
+  mIdle:"IDLE",mTeach:"TEACH",mRepeat:"GUIDE",mAvoid:"AVOID",
+  waitCam:"Waiting for camera",ready:"Ready",
+  stKF:"Keyframes",stCorr:"Match",stWalk:"Walking",stRisk:"Risk L/C/R",
+  btnMotion:"📱 Allow motion sensor (once)",
+  btnTeach:"● Start teaching",btnTeachStop:"■ Stop teaching",
+  btnRepeat:"▶ Start guidance",btnRepeatStop:"■ Stop guidance",
+  btnAvoid:"🚶 Avoidance only (no route)",btnAvoidStop:"■ Stop avoidance",
+  btnExport:"Export route",btnImport:"Import route",btnClear:"Clear",
+  kfEmpty:"Keyframes will appear here",
+  secBody:"🧍 Avatar / body size",showAvatar:"Show translucent avatar",
+  height:"Height (cm)",weight:"Weight (kg)",margin:"Safety margin (cm/side)",
+  refDist:"Reference distance (m)",bodyW:"Estimated clearance",
+  secDetect:"🔬 Detection / experiment",sens:"Obstacle sensitivity",
+  yTop:"Detection top (%)",yBot:"Detection bottom (%)",hold:"Warning hold time (s)",
+  useEdge:"Use edge detection too",edgeTh:"Binarization threshold",viewMode:"Display",
+  viewNormal:"Camera",viewGray:"Grayscale",viewEdge:"Edge (binary)",
+  always:"Detect while standing (may false-alarm)",res:"Resolution",
+  resL:"Low 64×48",resM:"Mid 96×72",resH:"High 128×96",
+  secOut:"🔔 Output channels / Morse",
+  outBuzz:"Buzzer (600Hz Morse)",outVib:"Vibration (Morse)",outTTS:"Voice guidance",
+  picoFront:"Front ToF (mm)",picoFloor:"Floor (mm)",picoUS:"Ultrasonic (mm)",picoCode:"PICO status",
+  cardPicoDrop:"⚠ Sensor: descending step",cardPicoGlass:"⚠ Sensor: possible glass",cardPicoFront:"⚠ Sensor: obstacle ahead",
+  sDrop:"Caution, descending step",sGlass:"Caution, glass",
+  outBLE:"Morse current BLE (PICO 2W)",btnBLE:"🔗 Connect BLE (select OKIMO-PICO)",
+  bleNo:"Web Bluetooth not supported in this browser (not on iPhone Safari; use Android Chrome)",
+  bleOK:"BLE connected",bleLost:"BLE disconnected",
+  outWS:"Morse current WiFi (PICO 2W, localhost only)",dotLen:"Morse dot length (ms)",
+  fine:"Fine mode (strict straight)",wideK:"Wide-K (tolerant straight)",
+  hintLimits:"Detection uses motion parallax + edge density. Glass, descending steps and darkness cannot be detected. Use with a white cane.",
+  lK:"Straight",lL:"Left",lR:"Right",lS:"Stop / lost",lO:"Arrived",lSOS:"Danger / stop",
+  cardStop:"⚠ Collision risk — STOP",cardHold:"⚠ Stopped — checking",
+  cardFrontL:"Obstacle ahead → go left",cardFrontR:"Obstacle ahead → go right",
+  cardSlow:"Caution ahead — slow down",cardLeft:"Obstacle on left → go right",cardRight:"Obstacle on right → go left",
+  cardIdle:"Standing — detection paused (walk to resume)",
+  sStopCheck:"Stop and check",sGo:"Go ahead",
+  sSlow:"Slow down",sBitL:"A little left",sBitR:"A little right",
+  sL:"Left",sR:"Right",sStop:"Stop",sArrive:"You have arrived",
+  walkNone:"no sens",walkStop:"still",walkSlow:"slow",walkNorm:"normal",walkFast:"fast",
+  teachGuide:"Walk the route now",repStop:"Guidance stopped",avStop:"Stopped",
+  logTeach:"Teaching started",logTeachEnd:"Teaching ended",logRep:"Guidance started",logArrive:"◎ Arrived",
+  logAvoid:"Avoidance mode — hold at chest and walk",logAvoidEnd:"Avoidance stopped",
+  ttsLang:"en-US"
+ }
+};
+let LANG="ja";
+const t=k=>T[LANG][k]||k;
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t(el.dataset.i18n);});
+  $("btnLang").textContent = LANG==="ja"?"EN":"日本語";
+  setMode(mode); // ボタン文言更新
+}
+
+// ---------------- 定数・状態 ----------------
+let PW=96,PH=72,MAX_SHIFT=28;
+const PROC_MS=110,MIN_KF_MS=700;
+const LOST_TH=0.35,LOST_MS=2000,ADVANCE_TH=0.45;
+const REPEAT_SIGNAL_MS=2500;
+const MORSE={K:"-.-",L:".-..",R:".-.",S:"...",O:"---",SOS:"...---..."};
+const GLYPH={K:"↑",L:"←",R:"→",S:"■",O:"◎",SOS:"⚠"};
+const CLS={K:"c-go",L:"c-turn",R:"c-turn",S:"c-stop",O:"c-goal",SOS:"c-stop"};
+
+let mode="idle";
+let route=[],kfIndex=0,lastKFTime=0,lostSince=0;
+let lastSignal="",lastSignalTime=0;
+let ws=null,audioCtx=null;
+let accWin=[],walkLevel=0,motionOK=false;
+let prevGray=null,emaL=0,emaC=0,emaR=0;
+let sosLatch=false,sosClearSince=0;
+let corr={c0:0.35,c1:0.65,w:0.30};   // アバター連動コリドー(画面比)
+
+const $=id=>document.getElementById(id);
+const video=$("video"),overlay=$("overlay"),procView=$("procView");
+let work=document.createElement("canvas"),wctx;
+function setupWork(){work.width=PW;work.height=PH;wctx=work.getContext("2d",{willReadFrequently:true});}
+setupWork();
+function log(s){const el=$("log");el.textContent=(new Date().toTimeString().slice(0,8))+" "+s+"\n"+el.textContent.slice(0,1500);}
+
+// ---------------- スライダー表示 ----------------
+function bindVal(rid,vid,fmt){const r=$(rid),v=$(vid);const f=()=>v.textContent=fmt?fmt(r.value):r.value;r.addEventListener("input",f);f();}
+bindVal("rMargin","vMargin");
+bindVal("rDist","vDist",x=>(x/10).toFixed(1));
+bindVal("rSens","vSens");
+bindVal("rYTop","vYTop"); bindVal("rYBot","vYBot");
+bindVal("rHold","vHold",x=>(x/10).toFixed(1));
+bindVal("rEdgeTh","vEdgeTh");
+bindVal("rDot","vDot");
+
+// ---------------- アバター＝通過幅 ----------------
+function bodyWidthM(){
+  const h=parseFloat($("inHeight").value)||165;
+  const w=parseFloat($("inWeight").value)||60;
+  const bmi=w/Math.pow(h/100,2);
+  let shoulder=h*0.245;                          // 肩幅の目安
+  shoulder*= 1+Math.max(0,bmi-22)*0.012;         // 体格補正
+  const margin=parseFloat($("rMargin").value)||0;
+  const total=(shoulder+2*margin)/100;           // m
+  $("vBodyW").textContent=(total*100).toFixed(0)+" cm";
+  return total;
+}
+function updateCorridor(){
+  const bw=bodyWidthM();
+  const D=(parseFloat($("rDist").value)||15)/10;   // m
+  const FOV=62*Math.PI/180;
+  let frac=bw/(2*D*Math.tan(FOV/2));               // 画面幅比
+  frac=Math.max(0.12,Math.min(0.5,frac));
+  corr={c0:0.5-frac/2,c1:0.5+frac/2,w:frac};
+}
+["inHeight","inWeight","rMargin","rDist"].forEach(id=>$(id).addEventListener("input",updateCorridor));
+updateCorridor();
+
+// ---------------- カメラ ----------------
+async function initCam(){
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=st;await video.play();
+    $("sigLabel").textContent=t("ready");
+    log("camera OK");
+    requestAnimationFrame(loop);
+  }catch(e){$("sigLabel").textContent="camera: "+e.name;log("getUserMedia NG: "+e.message);}
+}
+
+// ---------------- 加速度 ----------------
+function onMotion(ev){
+  const a=ev.accelerationIncludingGravity;
+  if(!a||a.x===null)return;
+  const m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z),now=performance.now();
+  accWin.push({t:now,m});
+  while(accWin.length&&now-accWin[0].t>1500)accWin.shift();
+  if(accWin.length<8)return;
+  let mean=0;for(const s of accWin)mean+=s.m;mean/=accWin.length;
+  let v=0;for(const s of accWin)v+=(s.m-mean)*(s.m-mean);
+  walkLevel=Math.max(0,Math.min(1,(Math.sqrt(v/accWin.length)-0.25)/2.2));
+  motionOK=true;
+}
+function setupMotion(){
+  if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){
+    $("btnMotion").style.display="block";
+    $("btnMotion").onclick=async()=>{
+      try{const r=await DeviceMotionEvent.requestPermission();
+        if(r==="granted"){window.addEventListener("devicemotion",onMotion);$("btnMotion").style.display="none";log("motion OK");}
+      }catch(e){log("motion: "+e.message);}
+    };
+  }else window.addEventListener("devicemotion",onMotion);
+}
+
+// ---------------- 画像処理 ----------------
+let grayBuf=null,edgeBuf=null;
+function grab(needEdge){
+  wctx.drawImage(video,0,0,PW,PH);
+  const d=wctx.getImageData(0,0,PW,PH).data;
+  if(!grayBuf||grayBuf.length!==PW*PH){grayBuf=new Float32Array(PW*PH);edgeBuf=new Float32Array(PW*PH);}
+  const g=grayBuf;
+  for(let i=0,p=0;i<d.length;i+=4,p++)g[p]=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+  // 1Dプロファイル
+  const prof=new Float32Array(PW);
+  for(let x=1;x<PW-1;x++){let s=0;for(let y=0;y<PH;y++)s+=Math.abs(g[y*PW+x+1]-g[y*PW+x-1]);prof[x]=s;}
+  let m=0;for(let x=0;x<PW;x++)m+=prof[x];m/=PW;
+  let v=0;for(let x=0;x<PW;x++){prof[x]-=m;v+=prof[x]*prof[x];}
+  v=Math.sqrt(v/PW)||1;for(let x=0;x<PW;x++)prof[x]/=v;
+  // エッジ(必要時)
+  if(needEdge){
+    const e=edgeBuf;
+    for(let y=1;y<PH-1;y++)for(let x=1;x<PW-1;x++){
+      const i=y*PW+x;
+      e[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+PW]-g[i-PW]);
+    }
+  }
+  return {prof,gray:g};
+}
+
+// --- 運動視差＋エッジ セクター解析（コリドー連動） ---
+function analyzeSectors(gray,useEdge,edgeTh){
+  const y0=(PH*(parseInt($("rYTop").value)/100))|0;
+  const y1=(PH*(parseInt($("rYBot").value)/100))|0;
+  const cx0=(PW*corr.c0)|0,cx1=(PW*corr.c1)|0;
+  const sw=cx1-cx0;                         // 中央=体幅、左右=同幅
+  const lx0=Math.max(0,cx0-sw),rx1=Math.min(PW,cx1+sw);
+  let out=null;
+  if(prevGray&&prevGray.length===gray.length){
+    let sL=0,nL=0,sC=0,nC=0,sR=0,nR=0,sBG=0,nBG=0;
+    let eL=0,eC=0,eR=0;
+    for(let y=0;y<PH;y++){
+      const yw=Math.pow(y/PH,1.6);          // 下ほど近い→重み大
+      for(let x=0;x<PW;x++){
+        const i=y*PW+x;
+        const diff=Math.abs(gray[i]-prevGray[i]);
+        const inY=(y>=y0&&y<y1);
+        if(inY&&x>=lx0&&x<cx0){sL+=diff;nL++;if(useEdge&&edgeBuf[i]>edgeTh)eL+=yw;}
+        else if(inY&&x>=cx0&&x<cx1){sC+=diff;nC++;if(useEdge&&edgeBuf[i]>edgeTh)eC+=yw;}
+        else if(inY&&x>=cx1&&x<rx1){sR+=diff;nR++;if(useEdge&&edgeBuf[i]>edgeTh)eR+=yw;}
+        else if(y<y0||x<lx0||x>=rx1){sBG+=diff;nBG++;}
+      }
+    }
+    const bg=nBG?sBG/nBG:0;
+    const ex=(s,n)=>Math.max(0,(n?s/n:0)-bg*1.15)/255;
+    let L=ex(sL,nL),C=ex(sC,nC),R=ex(sR,nR);
+    if(useEdge){
+      // エッジ密度(下方重み) → 平均を引いて非対称分を加点
+      const eN=(e,n)=>n?e/n:0;
+      let dL=eN(eL,nL),dC=eN(eC,nC),dR=eN(eR,nR);
+      const avg=(dL+dC+dR)/3;
+      L=Math.max(L,(dL-avg*0.8)*0.35);
+      C=Math.max(C,(dC-avg*0.8)*0.35);
+      R=Math.max(R,(dR-avg*0.8)*0.35);
+    }
+    out={L,C,R};
+  }
+  if(!prevGray||prevGray.length!==gray.length)prevGray=new Float32Array(gray.length);
+  prevGray.set(gray);
+  return out;
+}
+
+// ---------------- 相関照合 ----------------
+function matchShift(a,b){
+  let best=-2,bestS=0;
+  for(let s=-MAX_SHIFT;s<=MAX_SHIFT;s++){
+    let c=0,n=0;const lo=Math.max(0,-s),hi=Math.min(PW,PW-s);
+    for(let x=lo;x<hi;x++){c+=a[x]*b[x+s];n++;}
+    c/=n;if(c>best){best=c;bestS=s;}
+  }
+  return {corr:best,shift:bestS};
+}
+
+// ---------------- メインループ ----------------
+let lastProc=0;
+function loop(tm){
+  requestAnimationFrame(loop);
+  if(tm-lastProc<PROC_MS||video.readyState<2)return;
+  lastProc=tm;
+  const viewMode=$("selView").value;
+  const useEdge=$("chkEdge").checked;
+  const edgeTh=parseInt($("rEdgeTh").value)||60;
+  const needEdge=useEdge||viewMode==="edge";
+  const {prof,gray}=grab(needEdge);
+
+  const walking=$("chkAlways").checked?true:walkLevel>0.12;
+  $("stWalk").textContent=!motionOK?t("walkNone"):
+    walkLevel<0.12?t("walkStop"):walkLevel<0.4?t("walkSlow"):walkLevel<0.75?t("walkNorm"):t("walkFast");
+
+  let avoid=null;
+  if(mode==="repeat"||mode==="avoid"){
+    const sec=analyzeSectors(gray,useEdge,edgeTh);
+    if(sec){
+      const speedFactor=motionOK?(0.35+0.65*walkLevel):0.7;
+      const a=0.55;
+      emaL=a*emaL+(1-a)*sec.L*speedFactor;
+      emaC=a*emaC+(1-a)*sec.C*speedFactor;
+      emaR=a*emaR+(1-a)*sec.R*speedFactor;
+    }
+    drawRisk(emaL,emaC,emaR);
+    if(walking)avoid=decideAvoid(tm);
+    else{$("topCard").className="idle";$("topCard").textContent=t("cardIdle");}
+    const po=picoOverride();
+    if(po)avoid=po;   // センサの物理検出は常に優先(停止中も有効)
+  }else{
+    $("topCard").className="";emaL=emaC=emaR=0;prevGray=null;drawRisk(0,0,0);
+  }
+
+  if(mode==="teach")stepTeach(prof,tm);
+  else if(mode==="repeat")stepRepeat(prof,tm,avoid);
+  else if(mode==="avoid")stepAvoid(tm,avoid);
+
+  renderProc(viewMode,edgeTh);
+  drawOverlay(prof);
+}
+
+// ---------------- 行動決定 ----------------
+function decideAvoid(tm){
+  const sens=parseInt($("rSens").value)||5;
+  const TH=0.075-sens*0.006, TH_SOS=TH*2.4;
+  const HOLD=(parseInt($("rHold").value)||15)*100;   // ms
+  const L=emaL,C=emaC,R=emaR,maxv=Math.max(L,C,R);
+  if(C>TH_SOS||(L>TH_SOS&&R>TH_SOS)){
+    sosLatch=true;sosClearSince=0;
+    return{code:"SOS",say:t("sStopCheck"),card:"warn",msg:t("cardStop")};
+  }
+  if(sosLatch){
+    if(maxv<TH*0.6){
+      if(!sosClearSince)sosClearSince=tm;
+      if(tm-sosClearSince>HOLD){sosLatch=false;return{code:"K",say:t("sGo"),card:"",msg:""};}
+    }else sosClearSince=0;
+    return{code:"SOS",say:"",card:"warn",msg:t("cardHold")};
+  }
+  if(C>TH){
+    if(L<R*0.8)return{code:"L",say:t("sBitL"),card:"slow",msg:t("cardFrontL")};
+    if(R<L*0.8)return{code:"R",say:t("sBitR"),card:"slow",msg:t("cardFrontR")};
+    return{code:null,say:t("sSlow"),card:"slow",msg:t("cardSlow")};
+  }
+  if(L>TH&&L>R*1.4)return{code:"R",say:t("sBitR"),card:"slow",msg:t("cardLeft")};
+  if(R>TH&&R>L*1.4)return{code:"L",say:t("sBitL"),card:"slow",msg:t("cardRight")};
+  return null;
+}
+
+// ---------------- 教示/再生/回避 ----------------
+function stepTeach(prof,tm){
+  if(route.length===0){saveKF(prof);return;}
+  const {corr:c}=matchShift(prof,route[route.length-1].profile);
+  $("stCorr").textContent=c.toFixed(2);
+  if(c<0.78&&tm-lastKFTime>MIN_KF_MS)saveKF(prof);
+}
+function saveKF(prof){
+  lastKFTime=performance.now();
+  const thumb=work.toDataURL("image/jpeg",0.5);
+  route.push({profile:prof,thumb});
+  const img=document.createElement("img");img.src=thumb;
+  if(route.length===1)$("kfStrip").innerHTML="";
+  $("kfStrip").appendChild(img);
+  $("stKF").textContent=route.length;
+  log("KF #"+route.length);
+}
+function stepRepeat(prof,tm,avoid){
+  if(avoid){
+    showCard(avoid);
+    if(avoid.code)emit(avoid.code,avoid.say);
+    else if(avoid.say)speakOnly(avoid.say);
+    if(avoid.code==="SOS"||avoid.code==="L"||avoid.code==="R")return;
+  }else $("topCard").className="";
+  const cur=matchShift(prof,route[kfIndex].profile);
+  let best=cur,bestIdx=kfIndex;
+  for(let k=1;k<=2;k++){if(kfIndex+k<route.length){
+    const m=matchShift(prof,route[kfIndex+k].profile);
+    if(m.corr>best.corr&&m.corr>ADVANCE_TH){best=m;bestIdx=kfIndex+k;}}}
+  if(bestIdx!==kfIndex){kfIndex=bestIdx;markStrip();}
+  $("stKF").textContent=(kfIndex+1)+"/"+route.length;
+  $("stCorr").textContent=best.corr.toFixed(2);
+  if(best.corr<LOST_TH){if(!lostSince)lostSince=tm;if(tm-lostSince>LOST_MS){emit("S",t("sStop"));return;}}
+  else lostSince=0;
+  if(kfIndex===route.length-1&&best.corr>0.6){emit("O",t("sArrive"));stopRepeat(true);return;}
+  let dead=5;if($("chkFine").checked)dead=3;if($("chkWideK").checked)dead=10;
+  const code=best.shift>dead?"R":best.shift<-dead?"L":"K";
+  emit(code,code==="R"?t("sR"):code==="L"?t("sL"):"");
+  window._lastShift=best.shift;
+}
+function stepAvoid(tm,avoid){
+  if(avoid){showCard(avoid);
+    if(avoid.code)emit(avoid.code,avoid.say);
+    else if(avoid.say)speakOnly(avoid.say);
+  }else{$("topCard").className="";emit("K","");}
+}
+function showCard(av){
+  if(av.card){$("topCard").className=av.card;$("topCard").textContent=av.msg;}
+  else $("topCard").className="";
+}
+
+// ---------------- 出力 ----------------
+const LBL={K:"lK",L:"lL",R:"lR",S:"lS",O:"lO",SOS:"lSOS"};
+function emit(code,say){
+  const now=performance.now();
+  if(code===lastSignal&&now-lastSignalTime<REPEAT_SIGNAL_MS)return;
+  lastSignal=code;lastSignalTime=now;
+  $("glyph").textContent=GLYPH[code];
+  $("sigLetter").textContent=code;
+  $("sigMorse").textContent=MORSE[code].replace(/\./g,"·").replace(/-/g,"—");
+  $("sigLabel").textContent=t(LBL[code]);
+  $("indicator").className=CLS[code];
+  if($("optVib").checked&&navigator.vibrate)navigator.vibrate(morsePattern(MORSE[code]));
+  if($("optBuzz").checked)beepMorse(MORSE[code]);
+  if($("optTTS").checked&&say)speak(say);
+  if($("optWS").checked&&ws&&ws.readyState===1){try{ws.send(code);}catch(e){}}
+  if($("optBLE").checked)bleSend(code);
+}
+function speakOnly(say){if($("optTTS").checked)speak(say);}
+function units(){const d=parseInt($("rDot").value)||90;return{D:d,H:d*3,G:d};}
+function morsePattern(m){const u=units();const p=[];for(const c of m){p.push(c==="."?u.D:u.H);p.push(u.G);}p.pop();return p;}
+function beepMorse(m){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const u=units();let tt=audioCtx.currentTime;
+  for(const c of m){const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.frequency.value=600;o.connect(g);g.connect(audioCtx.destination);
+    const dur=(c==="."?u.D:u.H)/1000;g.gain.setValueAtTime(0.25,tt);
+    o.start(tt);o.stop(tt+dur);tt+=dur+u.G/1000;}}
+let lastSpokeT=0,lastSpokeText="";
+function speak(text){
+  if(!("speechSynthesis" in window))return;
+  const now=performance.now();
+  if(text===lastSpokeText&&now-lastSpokeT<2500)return;
+  lastSpokeT=now;lastSpokeText=text;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=t("ttsLang");u.rate=1.15;
+  speechSynthesis.cancel();speechSynthesis.speak(u);
+}
+
+// ---------------- 表示 ----------------
+function renderProc(viewMode,edgeTh){
+  if(viewMode==="normal"){procView.style.display="none";return;}
+  procView.style.display="block";
+  if(procView.width!==PW){procView.width=PW;procView.height=PH;}
+  const ctx=procView.getContext("2d");
+  const img=ctx.createImageData(PW,PH);
+  for(let i=0;i<PW*PH;i++){
+    let v;
+    if(viewMode==="gray")v=grayBuf?grayBuf[i]:0;
+    else v=(edgeBuf&&edgeBuf[i]>edgeTh)?255:0;
+    img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v;img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  procView.style.imageRendering="pixelated";
+}
+function drawRisk(L,C,R){
+  const f=v=>Math.min(100,v*900);
+  const set=(id,v)=>{const el=$(id);el.style.width=f(v)+"%";
+    el.style.background=v>0.05?"var(--warn)":v>0.025?"var(--teach)":"var(--repeat)";};
+  set("rbL",L);set("rbC",C);set("rbR",R);
+  $("stRisk").textContent=(Math.max(L,C,R)*100).toFixed(0);
+}
+function drawOverlay(prof){
+  const c=overlay,x=c.getContext("2d");
+  if(c.width!==c.clientWidth){c.width=c.clientWidth;c.height=c.clientHeight;}
+  x.clearRect(0,0,c.width,c.height);
+  // プロファイル波形
+  x.strokeStyle="rgba(61,220,151,.9)";x.lineWidth=1.5;x.beginPath();
+  for(let i=0;i<PW;i++){const px=i/PW*c.width,py=c.height-8-Math.max(-2,Math.min(2,prof[i]))*12-24;i?x.lineTo(px,py):x.moveTo(px,py);}
+  x.stroke();
+  if(mode==="repeat"||mode==="avoid"){
+    const yT=c.height*(parseInt($("rYTop").value)/100),yB=c.height*(parseInt($("rYBot").value)/100);
+    const cx0=c.width*corr.c0,cx1=c.width*corr.c1,sw=cx1-cx0;
+    const lx0=Math.max(0,cx0-sw),rx1=Math.min(c.width,cx1+sw);
+    const zones=[[lx0,cx0,emaL],[cx0,cx1,emaC],[cx1,rx1,emaR]];
+    for(const [a,b,v] of zones){
+      x.fillStyle=v>0.05?"rgba(255,93,93,.28)":v>0.025?"rgba(245,165,36,.20)":"rgba(61,220,151,.07)";
+      x.fillRect(a,yT,b-a,yB-yT);
+      x.strokeStyle="rgba(255,255,255,.22)";x.lineWidth=1;x.strokeRect(a,yT,b-a,yB-yT);
+    }
+    // 半透明アバター（通過幅シルエット）
+    if($("chkAvatar").checked)drawAvatar(x,c.width,c.height,cx0,cx1,yB);
+  }
+  if(mode==="repeat"&&typeof window._lastShift==="number"){
+    const tx=c.width/2+window._lastShift/PW*c.width;
+    x.strokeStyle="rgba(245,165,36,.95)";x.lineWidth=3;
+    x.beginPath();x.moveTo(tx,c.height*0.25);x.lineTo(tx,c.height*0.75);x.stroke();
+  }
+}
+function drawAvatar(x,cw,ch,cx0,cx1,yBase){
+  const W=cx1-cx0, cx=(cx0+cx1)/2;
+  const H=Math.min(ch*0.72,W*2.4);          // 人型の高さ
+  const top=yBase-H;
+  x.save();
+  x.fillStyle="rgba(106,183,255,0.16)";
+  x.strokeStyle="rgba(106,183,255,0.55)";
+  x.lineWidth=2;
+  x.beginPath();
+  const r=W*0.17;                            // 頭
+  x.arc(cx,top+r,r,0,Math.PI*2);
+  x.moveTo(cx-W/2,top+r*2.4);                // 肩から下のシルエット
+  x.quadraticCurveTo(cx-W/2,top+r*2.0,cx-W*0.30,top+r*2.0);
+  x.lineTo(cx+W*0.30,top+r*2.0);
+  x.quadraticCurveTo(cx+W/2,top+r*2.0,cx+W/2,top+r*2.4);
+  x.lineTo(cx+W*0.40,yBase);
+  x.lineTo(cx-W*0.40,yBase);
+  x.closePath();
+  x.fill();x.stroke();
+  // 通過幅ガイド線
+  x.setLineDash([6,5]);
+  x.strokeStyle="rgba(106,183,255,0.45)";
+  x.beginPath();x.moveTo(cx0,yBase);x.lineTo(cx0,top);x.moveTo(cx1,yBase);x.lineTo(cx1,top);x.stroke();
+  x.setLineDash([]);
+  x.restore();
+}
+
+// ---------------- UI 状態 ----------------
+function markStrip(){[...$("kfStrip").querySelectorAll("img")].forEach((im,i)=>im.classList.toggle("now",i===kfIndex));}
+function setMode(m){
+  mode=m;const b=$("modeBadge");
+  b.className=m==="teach"?"teach":m==="repeat"?"repeat":m==="avoid"?"avoid":"";
+  b.textContent=m==="teach"?t("mTeach"):m==="repeat"?t("mRepeat"):m==="avoid"?t("mAvoid"):t("mIdle");
+  $("btnTeach").textContent=m==="teach"?t("btnTeachStop"):t("btnTeach");
+  $("btnTeach").className=m==="teach"?"stop":"primary-teach";
+  $("btnRepeat").textContent=m==="repeat"?t("btnRepeatStop"):t("btnRepeat");
+  $("btnRepeat").className=m==="repeat"?"stop":"primary-repeat";
+  $("btnAvoid").textContent=m==="avoid"?t("btnAvoidStop"):t("btnAvoid");
+  $("btnAvoid").className=m==="avoid"?"stop":"avoid";
+  $("btnRepeat").disabled=(m==="teach"||m==="avoid")||route.length<2;
+  $("btnTeach").disabled=(m==="repeat"||m==="avoid");
+  $("btnAvoid").disabled=(m==="teach"||m==="repeat");
+  $("btnExport").disabled=$("btnClear").disabled=route.length===0||m!=="idle";
+}
+
+// ---------------- ボタン ----------------
+$("btnLang").onclick=()=>{LANG=LANG==="ja"?"en":"ja";applyLang();};
+$("btnTeach").onclick=()=>{
+  if(mode==="teach"){setMode("idle");log(t("logTeachEnd")+": "+route.length+" KF");}
+  else{route=[];kfIndex=0;$("kfStrip").innerHTML="";setMode("teach");
+    $("sigLabel").textContent=t("teachGuide");$("indicator").className="";
+    $("glyph").textContent="●";$("sigLetter").textContent="REC";$("sigMorse").textContent="";log(t("logTeach"));}
+};
+$("btnRepeat").onclick=()=>{
+  if(mode==="repeat")stopRepeat(false);
+  else{kfIndex=0;lostSince=0;lastSignal="";prevGray=null;emaL=emaC=emaR=0;sosLatch=false;
+    setMode("repeat");markStrip();if($("optWS").checked)connectWS();log(t("logRep")+" ("+route.length+" KF)");}
+};
+$("btnAvoid").onclick=()=>{
+  if(mode==="avoid"){setMode("idle");$("topCard").className="";$("glyph").textContent="·";
+    $("indicator").className="";$("sigLabel").textContent=t("avStop");log(t("logAvoidEnd"));}
+  else{prevGray=null;emaL=emaC=emaR=0;sosLatch=false;lastSignal="";
+    setMode("avoid");log(t("logAvoid"));}
+};
+function stopRepeat(goal){setMode("idle");$("topCard").className="";
+  if(!goal){$("sigLabel").textContent=t("repStop");$("indicator").className="";$("glyph").textContent="·";}
+  log(goal?t("logArrive"):t("repStop"));}
+$("btnClear").onclick=()=>{route=[];$("kfStrip").innerHTML='<span class="empty">'+t("kfEmpty")+'</span>';
+  $("stKF").textContent="0/0";setMode("idle");};
+
+// ---------------- 解像度 ----------------
+$("selRes").onchange=e=>{
+  const w=parseInt(e.target.value);PW=w;PH=Math.round(w*0.75);
+  MAX_SHIFT=Math.round(w*0.29);setupWork();prevGray=null;grayBuf=null;edgeBuf=null;
+  log("res "+PW+"×"+PH);
+};
+
+// ---------------- 入出力 ----------------
+$("btnExport").onclick=()=>{
+  const data={v:4,res:PW,created:new Date().toISOString(),
+    kf:route.map(k=>({p:[...k.profile].map(x=>+x.toFixed(4)),t:k.thumb}))};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:"application/json"}));
+  a.download="okimo_route_"+Date.now()+".json";a.click();
+};
+$("btnImport").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const data=JSON.parse(await f.text());
+    if(data.res&&data.res!==PW){PW=data.res;PH=Math.round(PW*0.75);MAX_SHIFT=Math.round(PW*0.29);
+      setupWork();grayBuf=null;edgeBuf=null;$("selRes").value=String(PW);}
+    route=data.kf.map(k=>({profile:new Float32Array(k.p),thumb:k.t}));
+    $("kfStrip").innerHTML="";route.forEach(k=>{const im=document.createElement("img");im.src=k.thumb;$("kfStrip").appendChild(im);});
+    $("stKF").textContent=route.length;setMode("idle");log("import: "+route.length+" KF");
+  }catch(err){log("import NG: "+err.message);}
+};
+function connectWS(){
+  try{if(ws)ws.close();ws=new WebSocket($("wsUrl").value);
+    ws.onopen=()=>{$("wsDot").className="on";log("PICO OK");};
+    ws.onclose=()=>{$("wsDot").className="";};
+    ws.onerror=()=>{$("wsDot").className="";log("PICO NG");};
+  }catch(e){log("WS: "+e.message);}
+}
+$("optWS").onchange=e=>{if(e.target.checked)connectWS();else if(ws)ws.close();};
+
+// ---------------- PICO BLE (Web Bluetooth / Nordic UART) ----------------
+const NUS_SVC="6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_RX ="6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_TX ="6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+let picoState=null;   // {f,fl,u,c,why,t}
+function onPicoNotify(ev){
+  try{
+    const txt=new TextDecoder().decode(ev.target.value).trim();
+    const a=txt.split(",");          // "前方,床,超音波,コード,理由"
+    if(a.length>=5){
+      picoState={f:+a[0],fl:+a[1],u:+a[2],c:a[3],why:a[4],t:performance.now()};
+      $("pFront").textContent=picoState.f>0?picoState.f:"—";
+      $("pFloor").textContent=picoState.fl>0?picoState.fl:"—";
+      $("pUS").textContent=picoState.u>0?picoState.u:"—";
+      $("pCode").textContent=picoState.c+"/"+picoState.why;
+      $("pCode").style.color=picoState.c==="K"?"var(--repeat)":"var(--warn)";
+    }
+  }catch(e){}
+}
+// PICOセンサの安全信号は映像検出より優先
+function picoOverride(){
+  if(!picoState||performance.now()-picoState.t>1500)return null;
+  if(picoState.c==="SOS")
+    return {code:"SOS",say:picoState.why==="d"?t("sDrop"):t("sStopCheck"),
+            card:"warn",msg:picoState.why==="d"?t("cardPicoDrop"):t("cardStop")};
+  if(picoState.c==="S")
+    return {code:"S",say:picoState.why==="g"?t("sGlass"):t("sStopCheck"),
+            card:"warn",msg:picoState.why==="g"?t("cardPicoGlass"):t("cardPicoFront")};
+  return null;
+}
+let bleDev=null,bleRx=null,bleBusy=false;
+async function bleConnect(){
+  if(!navigator.bluetooth){log(t("bleNo"));return;}
+  try{
+    bleDev=await navigator.bluetooth.requestDevice({
+      filters:[{services:[NUS_SVC]},{namePrefix:"OKIMO"}],
+      optionalServices:[NUS_SVC]});
+    bleDev.addEventListener("gattserverdisconnected",()=>{
+      bleRx=null;$("bleDot").className="";log(t("bleLost"));});
+    const gatt=await bleDev.gatt.connect();
+    const svc=await gatt.getPrimaryService(NUS_SVC);
+    bleRx=await svc.getCharacteristic(NUS_RX);
+    try{
+      const tx=await svc.getCharacteristic(NUS_TX);
+      await tx.startNotifications();
+      tx.addEventListener("characteristicvaluechanged",onPicoNotify);
+      $("picoPanel").style.display="grid";
+    }catch(e){log("BLE notify: "+e.message);}
+    $("bleDot").className="on";$("optBLE").checked=true;
+    log(t("bleOK")+" ("+(bleDev.name||"?")+")");
+  }catch(e){log("BLE: "+e.message);}
+}
+async function bleSend(s){
+  if(!bleRx||bleBusy)return;
+  bleBusy=true;
+  try{await bleRx.writeValue(new TextEncoder().encode(s));}catch(e){}
+  bleBusy=false;
+}
+$("btnBLE").onclick=bleConnect;
+
+applyLang();
+setMode("idle");
+setupMotion();
+initCam();
+</script>
+</body>
+</html>
