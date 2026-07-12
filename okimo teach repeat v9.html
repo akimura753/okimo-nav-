@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<title>OKIMO-NAVI T&R v9</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --panel2:#1b2129; --line:#2a323c;
+    --ink:#e8ecef; --dim:#8b97a3;
+    --teach:#f5a524; --repeat:#3ddc97; --warn:#ff5d5d; --goal:#6ab7ff; --avatar:#6ab7ff;
+    --mono:"SF Mono","Roboto Mono",ui-monospace,monospace;
+    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{max-width:560px;margin:0 auto;padding:10px 12px 40px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 10px;gap:8px}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.05em;flex:1}
+  header h1 small{color:var(--dim);font-weight:400;font-size:11px;margin-left:6px}
+  #btnLang{flex:0 0 auto;min-width:0;padding:5px 12px;font-size:12px;font-weight:700;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+  #modeBadge{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  #modeBadge.teach{border-color:var(--teach);color:var(--teach)}
+  #modeBadge.repeat{border-color:var(--repeat);color:var(--repeat)}
+  #modeBadge.avoid{border-color:var(--warn);color:var(--warn)}
+  .cam{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+  video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  #procView,#overlay{position:absolute;inset:0;width:100%;height:100%}
+  #procView{display:none}
+  #overlay{pointer-events:none}
+  #topCard{position:absolute;top:8px;left:8px;right:8px;color:#fff;font-weight:700;font-size:18px;
+    text-align:center;padding:9px;border-radius:8px;display:none;z-index:3}
+  #topCard.warn{display:block;background:rgba(255,93,93,.92)}
+  #topCard.slow{display:block;background:rgba(245,165,36,.92);color:#1a1204}
+  #topCard.idle{display:block;background:rgba(60,70,82,.85);font-weight:500;font-size:14px}
+  #indicator{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 16px;min-height:108px;transition:border-color .2s}
+  #glyph{font-size:58px;line-height:1;font-weight:700;font-family:var(--mono)}
+  #sigText{text-align:right}
+  #sigLetter{font-family:var(--mono);font-size:27px;font-weight:700}
+  #sigMorse{font-family:var(--mono);font-size:18px;letter-spacing:.2em;color:var(--dim)}
+  #sigLabel{font-size:12px;color:var(--dim);margin-top:2px}
+  #indicator.c-go{border-color:var(--repeat)} #indicator.c-go #glyph{color:var(--repeat)}
+  #indicator.c-turn{border-color:var(--teach)} #indicator.c-turn #glyph{color:var(--teach)}
+  #indicator.c-stop{border-color:var(--warn)} #indicator.c-stop #glyph{color:var(--warn)}
+  #indicator.c-goal{border-color:var(--goal)} #indicator.c-goal #glyph{color:var(--goal)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+  .stat b{display:block;font-family:var(--mono);font-size:15px}
+  .stat span{font-size:9px;color:var(--dim)}
+  .riskbars{display:flex;gap:3px;margin-top:3px;height:8px}
+  .riskbars i{flex:1;background:var(--line);border-radius:2px;overflow:hidden;position:relative}
+  .riskbars i b{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--repeat);display:block}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button{flex:1;min-width:110px;padding:13px 10px;font-size:15px;font-weight:700;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--goal);outline-offset:2px}
+  button.primary-teach{background:var(--teach);border-color:var(--teach);color:#1a1204}
+  button.primary-repeat{background:var(--repeat);border-color:var(--repeat);color:#04160e}
+  button.avoid{background:#7c3aed;border-color:#7c3aed;color:#fff}
+  button.stop{background:var(--warn);border-color:var(--warn);color:#fff}
+  button:disabled{opacity:.35;cursor:default}
+  .row.small button{flex:1;padding:9px;font-size:13px;font-weight:500}
+  #btnMotion{display:none;background:var(--goal);border-color:var(--goal);color:#04121f}
+  details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  summary{padding:10px 12px;font-size:13px;color:var(--dim);cursor:pointer;font-weight:700}
+  .setbox{padding:2px 12px 12px;display:grid;gap:11px}
+  .setline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+  .setline .val{font-family:var(--mono);font-size:12px;color:var(--dim);min-width:52px;text-align:right}
+  .setline input[type=text],.setline input[type=number]{flex:1;max-width:110px;font-family:var(--mono);font-size:13px;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .setline input[type=text].wide{max-width:none}
+  .setline input[type=checkbox]{width:22px;height:22px}
+  .setline input[type=range]{flex:1}
+  .setline select{font-size:13px;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  #wsDot,#bleDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dim);margin-right:5px}
+  #wsDot.on,#bleDot.on{background:var(--repeat)}
+  #btnBLE{flex:1;padding:11px;font-size:14px;background:var(--goal);border-color:var(--goal);color:#04121f}
+  .hint{font-size:11px;color:var(--dim);line-height:1.5}
+  #kfStrip{display:flex;gap:5px;overflow-x:auto;margin-top:10px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:64px}
+  #kfStrip img{height:52px;border-radius:4px;border:2px solid transparent;flex:0 0 auto}
+  #kfStrip img.now{border-color:var(--repeat)}
+  #kfStrip .empty{color:var(--dim);font-size:12px;align-self:center;padding:0 8px}
+  #log{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;white-space:pre-wrap;max-height:90px;overflow-y:auto}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OKIMO-NAVI T&amp;R<small>v9 · AI認識</small></h1>
+  <button id="btnLang">EN</button>
+  <span id="modeBadge" data-i18n="mIdle">待機</span>
+</header>
+
+<div class="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="procView"></canvas>
+  <canvas id="overlay"></canvas>
+  <div id="topCard"></div>
+</div>
+
+<div id="indicator" aria-live="polite">
+  <div id="glyph">·</div>
+  <div id="sigText">
+    <div id="sigLetter">—</div>
+    <div id="sigMorse"></div>
+    <div id="sigLabel" data-i18n="waitCam">カメラ起動待ち</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="stKF">0/0</b><span data-i18n="stKF">キーフレーム</span></div>
+  <div class="stat"><b id="stCorr">—</b><span data-i18n="stCorr">一致度</span></div>
+  <div class="stat"><b id="stWalk">—</b><span data-i18n="stWalk">歩行</span></div>
+  <div class="stat"><b id="stRisk">—</b><span><span data-i18n="stRisk">リスク 左/中/右</span>
+    <span class="riskbars"><i><b id="rbL"></b></i><i><b id="rbC"></b></i><i><b id="rbR"></b></i></span></span>
+  </div>
+</div>
+
+<div class="stats" id="picoPanel" style="display:none">
+  <div class="stat"><b id="pFront">—</b><span data-i18n="picoFront">前方ToF (mm)</span></div>
+  <div class="stat"><b id="pFloor">—</b><span data-i18n="picoFloor">床距離 (mm)</span></div>
+  <div class="stat"><b id="pUS">—</b><span data-i18n="picoUS">超音波 (mm)</span></div>
+  <div class="stat"><b id="pCode">—</b><span data-i18n="picoCode">PICO判定</span></div>
+</div>
+
+<div class="row"><button id="btnMotion" data-i18n="btnMotion">📱 センサを許可（初回のみ）</button></div>
+<div class="row">
+  <button id="btnTeach" class="primary-teach" data-i18n="btnTeach">● 教示開始</button>
+  <button id="btnRepeat" class="primary-repeat" disabled data-i18n="btnRepeat">▶ 案内開始</button>
+</div>
+<div class="row"><button id="btnAvoid" class="avoid" data-i18n="btnAvoid">🚶 回避モード（ルートなし）</button></div>
+<div class="row small">
+  <button id="btnExport" disabled data-i18n="btnExport">ルート書き出し</button>
+  <button id="btnImport" data-i18n="btnImport">ルート読み込み</button>
+  <button id="btnClear" disabled data-i18n="btnClear">消去</button>
+  <input type="file" id="fileIn" accept=".json" hidden>
+</div>
+
+<div id="kfStrip"><span class="empty" data-i18n="kfEmpty">キーフレームはここに並びます</span></div>
+
+<!-- ============ アバター（体格） ============ -->
+<details open>
+  <summary data-i18n="secBody">🧍 アバター・体格設定</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="showAvatar">半透明アバターを表示</span><input type="checkbox" id="chkAvatar" checked></div>
+    <div class="setline"><span data-i18n="height">身長 (cm)</span><input type="number" id="inHeight" value="165" min="100" max="210"></div>
+    <div class="setline"><span data-i18n="weight">体重 (kg)</span><input type="number" id="inWeight" value="60" min="30" max="150"></div>
+    <div class="setline"><span data-i18n="margin">安全マージン (片側cm)</span><input type="range" id="rMargin" min="0" max="30" value="10"><span class="val" id="vMargin">10</span></div>
+    <div class="setline"><span data-i18n="refDist">判定基準距離 (m)</span><input type="range" id="rDist" min="10" max="30" value="15"><span class="val" id="vDist">1.5</span></div>
+    <div class="setline"><span data-i18n="bodyW">推定通過幅</span><span class="val" id="vBodyW">—</span></div>
+  </div>
+</details>
+
+<!-- ============ 検出・実験パラメータ ============ -->
+<details>
+  <summary data-i18n="secDetect">🔬 検出・実験パラメータ</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="sens">障害物検出の感度</span><input type="range" id="rSens" min="1" max="9" value="5"><span class="val" id="vSens">5</span></div>
+    <div class="setline"><span data-i18n="yTop">検出範囲 上端 (%)</span><input type="range" id="rYTop" min="5" max="50" value="25"><span class="val" id="vYTop">25</span></div>
+    <div class="setline"><span data-i18n="yBot">検出範囲 下端 (%)</span><input type="range" id="rYBot" min="60" max="98" value="88"><span class="val" id="vYBot">88</span></div>
+    <div class="setline"><span data-i18n="hold">警告の保持時間 (秒)</span><input type="range" id="rHold" min="5" max="50" value="15"><span class="val" id="vHold">1.5</span></div>
+    <div class="setline"><span data-i18n="useEdge">エッジ検出も使う</span><input type="checkbox" id="chkEdge" checked></div>
+    <div class="setline"><span data-i18n="edgeTh">二値化しきい値</span><input type="range" id="rEdgeTh" min="20" max="120" value="60"><span class="val" id="vEdgeTh">60</span></div>
+    <div class="setline"><span data-i18n="viewMode">画面表示</span>
+      <select id="selView">
+        <option value="normal" data-i18n="viewNormal">カメラ映像</option>
+        <option value="gray" data-i18n="viewGray">グレースケール</option>
+        <option value="edge" data-i18n="viewEdge">エッジ二値化</option>
+      </select>
+    </div>
+    <div class="setline"><span data-i18n="always">停止中も検出（手ブレ誤報あり）</span><input type="checkbox" id="chkAlways"></div>
+    <div class="setline"><span data-i18n="res">処理解像度</span>
+      <select id="selRes">
+        <option value="64" data-i18n="resL">低 64×48</option>
+        <option value="96" selected data-i18n="resM">中 96×72</option>
+        <option value="128" data-i18n="resH">高 128×96</option>
+      </select>
+    </div>
+  </div>
+</details>
+
+<!-- ============ 出力チャネル ============ -->
+<details>
+  <summary data-i18n="secOut">🔔 出力チャネル・モールス</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="outBuzz">ブザー（600Hzモールス）</span><input type="checkbox" id="optBuzz"></div>
+    <div class="setline"><span data-i18n="outVib">振動（モールス）</span><input type="checkbox" id="optVib" checked></div>
+    <div class="setline"><span data-i18n="outTTS">音声ガイダンス</span><input type="checkbox" id="optTTS" checked></div>
+    <div class="setline"><span><span id="bleDot"></span><span data-i18n="outBLE">モールス通電 BLE（PICO 2W）</span></span><input type="checkbox" id="optBLE"></div>
+    <div class="setline"><button id="btnBLE" data-i18n="btnBLE">🔗 BLE接続（OKIMO-PICO を選択）</button></div>
+    <div class="setline"><span><span id="wsDot"></span><span data-i18n="outWS">モールス通電（PICO 2W）</span></span><input type="checkbox" id="optWS"></div>
+    <div class="setline"><input type="text" id="wsUrl" class="wide" value="ws://192.168.4.1/ws" aria-label="WebSocket URL"></div>
+    <div class="setline"><span data-i18n="dotLen">打電の長さ 短点 (ms)</span><input type="range" id="rDot" min="40" max="160" value="90"><span class="val" id="vDot">90</span></div>
+    <div class="setline"><span data-i18n="fine">微調整モード（直進判定を厳しく）</span><input type="checkbox" id="chkFine"></div>
+    <div class="setline"><span data-i18n="wideK">K範囲拡大（多少ズレても直進）</span><input type="checkbox" id="chkWideK"></div>
+    <p class="hint" data-i18n="hintLimits">検出原理は運動視差＋エッジ密度です。ガラス・下り段差・暗所は検出できません。白杖の併用が前提です。</p>
+  </div>
+</details>
+
+<details>
+  <summary data-i18n="secAI">🔎 AI認識（物体名・信号色）</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="aiUse">物体認識(AI)を使う</span><input type="checkbox" id="chkAI"></div>
+    <div class="setline"><span data-i18n="sigUse">🚦 信号の色を読み上げる（実験）</span><input type="checkbox" id="chkSig"></div>
+    <div class="setline"><span class="hint" id="aiStatus">—</span></div>
+    <p class="hint" data-i18n="aiHint"></p>
+  </div>
+</details>
+
+<details open>
+  <summary data-i18n="secGps">🗺 屋外ナビ（GPS・目的地案内）</summary>
+  <div class="setbox">
+    <div class="setline">
+      <input type="text" id="inDest" class="wide" placeholder="目的地 / destination">
+      <button id="btnGeo" style="flex:0 0 auto;min-width:70px" data-i18n="btnGeo">検索</button>
+    </div>
+    <div class="setline"><span class="hint" id="gDestTxt">—</span></div>
+    <div class="setline">
+      <button id="btnGps" disabled data-i18n="btnGpsStart">🧭 屋外ナビ開始</button>
+      <button id="btnGmap" disabled data-i18n="btnGmap">Googleマップで確認</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="gRemain">—</b><span data-i18n="remain">残り距離</span></div>
+      <div class="stat"><b id="gNext">—</b><span data-i18n="nextTurn">次の案内</span></div>
+      <div class="stat"><b id="gAcc">—</b><span data-i18n="gpsAcc">GPS精度(m)</span></div>
+      <div class="stat"><b id="gHead">—</b><span data-i18n="headLbl">方位</span></div>
+    </div>
+    <p class="hint" data-i18n="gpsHint"></p>
+  </div>
+</details>
+
+<details>
+  <summary data-i18n="secLog">📊 研究用データ記録・設定</summary>
+  <div class="setbox">
+    <div class="setline"><span data-i18n="logOn">CSV記録を有効化</span><input type="checkbox" id="chkLog"></div>
+    <div class="setline"><span data-i18n="logRows">記録行数</span><span class="val" id="vLogRows">0</span></div>
+    <div class="setline">
+      <button id="btnLogDl" style="flex:1" data-i18n="btnLogDl">CSV書き出し</button>
+      <button id="btnLogClear" style="flex:1" data-i18n="btnLogClear">記録を消去</button>
+    </div>
+    <div class="setline">
+      <button id="btnCfgExp" style="flex:1" data-i18n="btnCfgExp">設定を書き出し(JSON)</button>
+      <button id="btnCfgImp" style="flex:1" data-i18n="btnCfgImp">設定を読み込み</button>
+      <input type="file" id="cfgIn" accept=".json" hidden>
+    </div>
+  </div>
+</details>
+
+<div id="log"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   OKIMO-NAVI T&R v7 — 研究水準検出コア
+   [光学フロー]  8x8ブロックマッチングで疎な運動場を推定
+   [自己運動除去] 運動場の中央値(=カメラ並進/回転成分)を減算 → 残差=運動視差
+   [回転ゲート]   ジャイロ|yaw|>70°/s中は判定凍結(サッカード抑制)
+   [TTC]         中央コリドーの発散(divergence)から接触余裕時間を推定 (Lee 1976 tau)
+   [CFAR]        セクター毎に雑音統計(μ,σ)を自己学習し z スコア判定(誤警報率一定)
+   [記録]        タイムスタンプ付きCSV(選択制) — 全内部状態を毎フレーム記録
+   追加: 体格アバター連動コリドー / 実験パラメータ / 出力4ch個別選択
+         日英切替 / グレー・エッジ二値化表示とエッジ密度検出
+   ================================================================ */
+
+// ---------------- i18n ----------------
+const T = {
+ ja:{
+  mIdle:"待機",mTeach:"教示中",mRepeat:"案内中",mAvoid:"回避のみ",
+  waitCam:"カメラ起動待ち",ready:"準備完了",
+  stKF:"キーフレーム",stCorr:"一致度",stWalk:"歩行",stRisk:"リスク 左/中/右",
+  btnMotion:"📱 センサを許可（初回のみ）",
+  btnTeach:"● 教示開始",btnTeachStop:"■ 教示終了",
+  btnRepeat:"▶ 案内開始",btnRepeatStop:"■ 案内停止",
+  btnAvoid:"🚶 回避モード（ルートなし）",btnAvoidStop:"■ 回避モード停止",
+  btnExport:"ルート書き出し",btnImport:"ルート読み込み",btnClear:"消去",
+  kfEmpty:"キーフレームはここに並びます",
+  secBody:"🧍 アバター・体格設定",showAvatar:"半透明アバターを表示",
+  height:"身長 (cm)",weight:"体重 (kg)",margin:"安全マージン (片側cm)",
+  refDist:"判定基準距離 (m)",bodyW:"推定通過幅",
+  secDetect:"🔬 検出・実験パラメータ",sens:"障害物検出の感度",
+  yTop:"検出範囲 上端 (%)",yBot:"検出範囲 下端 (%)",hold:"警告の保持時間 (秒)",
+  useEdge:"エッジ検出も使う",edgeTh:"二値化しきい値",viewMode:"画面表示",
+  viewNormal:"カメラ映像",viewGray:"グレースケール",viewEdge:"エッジ二値化",
+  always:"停止中も検出（手ブレ誤報あり）",res:"処理解像度",
+  resL:"低 64×48",resM:"中 96×72",resH:"高 128×96",
+  secOut:"🔔 出力チャネル・モールス",
+  outBuzz:"ブザー（600Hzモールス）",outVib:"振動（モールス）",outTTS:"音声ガイダンス",
+  cardCalib:"較正中 — そのまま歩き続けてください",
+  secAI:"🔎 AI認識（物体名・信号色）",aiUse:"物体認識(AI)を使う — 初回のみモデル約6MBを取得",
+  sigUse:"🚦 信号の色を読み上げる（実験）",aiLoad:"AIモデル読込中…",aiReady:"AI 準備完了",
+  aiNG:"AI読込失敗(通信を確認)",objPre:"まえに、",
+  sigGreen:"しんごうは、あお",sigRed:"しんごうは、あか",sigNone:"しんごうが、みつかりません",
+  aiHint:"物体名はCOCO 80クラスの範囲(人・自転車・車・犬・いす等)。ポールや段差など未対応の物は名前なしで警告のみ出ます。信号読み上げは実験機能です — 誤認識があり得るため、横断の判断には絶対に使わず、音響信号・周囲の人・白杖で確認してください。",
+  mGps:"屋外ナビ",secGps:"🗺 屋外ナビ（GPS・目的地案内）",
+  btnGeo:"検索",btnGpsStart:"🧭 屋外ナビ開始",btnGpsStop:"■ 屋外ナビ停止",
+  btnGmap:"Googleマップで確認",remain:"残り距離",nextTurn:"次の案内",
+  gpsAcc:"GPS精度(m)",headLbl:"方位",gpsWait:"GPS取得中…",
+  destNG:"目的地が見つかりません",noRoute:"経路が見つかりません",
+  routeOK:"経路取得",reroute:"経路から外れました — 再探索中",
+  needDest:"先に目的地を検索してください",arrived:"目的地周辺です",
+  dirL:"ひだり",dirR:"みぎ",dirS:"直進",dirU:"折り返し",
+  annNow:"です",annPre1:"メートルさきで、",
+  gpsHint:"経路探索はOSRM/Nominatim(無料)。GPS精度は5〜15m程度で、横断歩道・信号・歩道の左右までは分かりません。方向修正はモールス、曲がり角の予告は音声で出ます。必ず白杖と併用してください。",
+  secLog:"📊 研究用データ記録・設定",logOn:"CSV記録を有効化",
+  logRows:"記録行数",btnLogDl:"CSV書き出し",btnLogClear:"記録を消去",
+  btnCfgExp:"設定を書き出し(JSON)",btnCfgImp:"設定を読み込み",
+  picoFront:"前方ToF (mm)",picoFloor:"床距離 (mm)",picoUS:"超音波 (mm)",picoCode:"PICO判定",
+  cardPicoDrop:"⚠ センサ: 下り段差",cardPicoGlass:"⚠ センサ: ガラスの疑い",cardPicoFront:"⚠ センサ: 前方障害物",
+  sDrop:"ちゅうい、くだりだんさ",sGlass:"ちゅうい、ガラス",
+  outBLE:"モールス通電 BLE（PICO 2W）",btnBLE:"🔗 BLE接続（OKIMO-PICO を選択）",
+  bleNo:"このブラウザは Web Bluetooth 非対応です（iPhoneのSafari不可・Android Chrome推奨）",
+  bleOK:"BLE 接続OK",bleLost:"BLE 切断されました",
+  outWS:"モールス通電 WiFi（PICO 2W・localhost時のみ）",dotLen:"打電の長さ 短点 (ms)",
+  fine:"微調整モード（直進判定を厳しく）",wideK:"K範囲拡大（多少ズレても直進）",
+  hintLimits:"検出原理は運動視差＋エッジ密度です。ガラス・下り段差・暗所は検出できません。白杖の併用が前提です。",
+  lK:"直進",lL:"左へ",lR:"右へ",lS:"停止・見失い",lO:"目的地に到着",lSOS:"危険・停止",
+  cardStop:"⚠ 接触リスク大 — 停止",cardHold:"⚠ 停止 — 確認中",
+  cardFrontL:"正面に障害物 → 左へ",cardFrontR:"正面に障害物 → 右へ",
+  cardSlow:"前方注意 — ゆっくり",cardLeft:"左に障害物 → 右へ",cardRight:"右に障害物 → 左へ",
+  cardIdle:"停止中 — 検出休止（歩き出すと再開）",
+  sStopCheck:"とまって、かくにんしてください",sGo:"すすんでください",
+  sSlow:"ゆっくり",sBitL:"もうすこし、ひだり",sBitR:"もうすこし、みぎ",
+  sL:"ひだり",sR:"みぎ",sStop:"ていし",sArrive:"もくてきちに、とうちゃくしました",
+  walkNone:"ｾﾝｻ無",walkStop:"停止",walkSlow:"ゆっくり",walkNorm:"普通",walkFast:"速い",
+  teachGuide:"ルートを歩いてください",repStop:"案内停止",avStop:"停止しました",
+  logTeach:"教示開始",logTeachEnd:"教示終了",logRep:"案内開始",logArrive:"◎ 到着",
+  logAvoid:"回避モード開始 — 胸の前に固定して歩いてください",logAvoidEnd:"回避モード停止",
+  ttsLang:"ja-JP"
+ },
+ en:{
+  mIdle:"IDLE",mTeach:"TEACH",mRepeat:"GUIDE",mAvoid:"AVOID",
+  waitCam:"Waiting for camera",ready:"Ready",
+  stKF:"Keyframes",stCorr:"Match",stWalk:"Walking",stRisk:"Risk L/C/R",
+  btnMotion:"📱 Allow motion sensor (once)",
+  btnTeach:"● Start teaching",btnTeachStop:"■ Stop teaching",
+  btnRepeat:"▶ Start guidance",btnRepeatStop:"■ Stop guidance",
+  btnAvoid:"🚶 Avoidance only (no route)",btnAvoidStop:"■ Stop avoidance",
+  btnExport:"Export route",btnImport:"Import route",btnClear:"Clear",
+  kfEmpty:"Keyframes will appear here",
+  secBody:"🧍 Avatar / body size",showAvatar:"Show translucent avatar",
+  height:"Height (cm)",weight:"Weight (kg)",margin:"Safety margin (cm/side)",
+  refDist:"Reference distance (m)",bodyW:"Estimated clearance",
+  secDetect:"🔬 Detection / experiment",sens:"Obstacle sensitivity",
+  yTop:"Detection top (%)",yBot:"Detection bottom (%)",hold:"Warning hold time (s)",
+  useEdge:"Use edge detection too",edgeTh:"Binarization threshold",viewMode:"Display",
+  viewNormal:"Camera",viewGray:"Grayscale",viewEdge:"Edge (binary)",
+  always:"Detect while standing (may false-alarm)",res:"Resolution",
+  resL:"Low 64×48",resM:"Mid 96×72",resH:"High 128×96",
+  secOut:"🔔 Output channels / Morse",
+  outBuzz:"Buzzer (600Hz Morse)",outVib:"Vibration (Morse)",outTTS:"Voice guidance",
+  cardCalib:"Calibrating — keep walking",
+  secAI:"🔎 AI recognition (object / signal)",aiUse:"Use object recognition (AI) — downloads ~6MB model once",
+  sigUse:"🚦 Read traffic-signal color (experimental)",aiLoad:"Loading AI model…",aiReady:"AI ready",
+  aiNG:"AI load failed (check connection)",objPre:"Ahead: ",
+  sigGreen:"Signal is green",sigRed:"Signal is red",sigNone:"No signal found",
+  aiHint:"Object names cover the 80 COCO classes (person, bicycle, car, dog, chair…). Poles or steps get warnings without a name. Signal reading is EXPERIMENTAL — never rely on it to cross; confirm with audible signals, people around you, and your cane.",
+  mGps:"GPS NAV",secGps:"🗺 Outdoor navigation (GPS)",
+  btnGeo:"Search",btnGpsStart:"🧭 Start GPS nav",btnGpsStop:"■ Stop GPS nav",
+  btnGmap:"Open in Google Maps",remain:"Remaining",nextTurn:"Next",
+  gpsAcc:"GPS acc (m)",headLbl:"Heading",gpsWait:"Acquiring GPS…",
+  destNG:"Destination not found",noRoute:"No route found",
+  routeOK:"Route ready",reroute:"Off route — recalculating",
+  needDest:"Search a destination first",arrived:"Near destination",
+  dirL:"left",dirR:"right",dirS:"straight",dirU:"U-turn",
+  annNow:", now",annPre1:" meters ahead, ",
+  gpsHint:"Routing via OSRM/Nominatim (free). GPS accuracy is ~5-15 m; crossings and signals are not detected. Steering corrections via Morse, turn announcements via voice. Always use with a white cane.",
+  secLog:"📊 Research logging / config",logOn:"Enable CSV logging",
+  logRows:"Rows",btnLogDl:"Download CSV",btnLogClear:"Clear log",
+  btnCfgExp:"Export settings (JSON)",btnCfgImp:"Import settings",
+  picoFront:"Front ToF (mm)",picoFloor:"Floor (mm)",picoUS:"Ultrasonic (mm)",picoCode:"PICO status",
+  cardPicoDrop:"⚠ Sensor: descending step",cardPicoGlass:"⚠ Sensor: possible glass",cardPicoFront:"⚠ Sensor: obstacle ahead",
+  sDrop:"Caution, descending step",sGlass:"Caution, glass",
+  outBLE:"Morse current BLE (PICO 2W)",btnBLE:"🔗 Connect BLE (select OKIMO-PICO)",
+  bleNo:"Web Bluetooth not supported in this browser (not on iPhone Safari; use Android Chrome)",
+  bleOK:"BLE connected",bleLost:"BLE disconnected",
+  outWS:"Morse current WiFi (PICO 2W, localhost only)",dotLen:"Morse dot length (ms)",
+  fine:"Fine mode (strict straight)",wideK:"Wide-K (tolerant straight)",
+  hintLimits:"Detection uses motion parallax + edge density. Glass, descending steps and darkness cannot be detected. Use with a white cane.",
+  lK:"Straight",lL:"Left",lR:"Right",lS:"Stop / lost",lO:"Arrived",lSOS:"Danger / stop",
+  cardStop:"⚠ Collision risk — STOP",cardHold:"⚠ Stopped — checking",
+  cardFrontL:"Obstacle ahead → go left",cardFrontR:"Obstacle ahead → go right",
+  cardSlow:"Caution ahead — slow down",cardLeft:"Obstacle on left → go right",cardRight:"Obstacle on right → go left",
+  cardIdle:"Standing — detection paused (walk to resume)",
+  sStopCheck:"Stop and check",sGo:"Go ahead",
+  sSlow:"Slow down",sBitL:"A little left",sBitR:"A little right",
+  sL:"Left",sR:"Right",sStop:"Stop",sArrive:"You have arrived",
+  walkNone:"no sens",walkStop:"still",walkSlow:"slow",walkNorm:"normal",walkFast:"fast",
+  teachGuide:"Walk the route now",repStop:"Guidance stopped",avStop:"Stopped",
+  logTeach:"Teaching started",logTeachEnd:"Teaching ended",logRep:"Guidance started",logArrive:"◎ Arrived",
+  logAvoid:"Avoidance mode — hold at chest and walk",logAvoidEnd:"Avoidance stopped",
+  ttsLang:"en-US"
+ }
+};
+let LANG="ja";
+const t=k=>T[LANG][k]||k;
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t(el.dataset.i18n);});
+  $("btnLang").textContent = LANG==="ja"?"EN":"日本語";
+  setMode(mode); // ボタン文言更新
+}
+
+// ---------------- 定数・状態 ----------------
+let PW=96,PH=72,MAX_SHIFT=28;
+const PROC_MS=110,MIN_KF_MS=700;
+const LOST_TH=0.35,LOST_MS=2000,ADVANCE_TH=0.45;
+const REPEAT_SIGNAL_MS=2500;
+const MORSE={K:"-.-",L:".-..",R:".-.",S:"...",O:"---",SOS:"...---..."};
+const GLYPH={K:"↑",L:"←",R:"→",S:"■",O:"◎",SOS:"⚠"};
+const CLS={K:"c-go",L:"c-turn",R:"c-turn",S:"c-stop",O:"c-goal",SOS:"c-stop"};
+
+let mode="idle";
+let route=[],kfIndex=0,lastKFTime=0,lostSince=0;
+let lastSignal="",lastSignalTime=0;
+let ws=null,audioCtx=null;
+let accWin=[],walkLevel=0,motionOK=false;
+let prevGray=null,emaL=0,emaC=0,emaR=0;      // emaX = 表示用(z/8クランプ)
+let zL=0,zC=0,zR=0,ttcC=Infinity;              // zスコアとTTC
+let rotYaw=0;                                   // ジャイロyaw(deg/s)
+let noise={mu:[0.02,0.02,0.02],sd:[0.02,0.02,0.02]};  // CFAR統計
+let calibUntil=0,lastFlowT=0,cntW=0;
+let logOnFlag=false,logBuf=[],lastEmitCode="";
+let sosLatch=false,sosClearSince=0;
+let corr={c0:0.35,c1:0.65,w:0.30};   // アバター連動コリドー(画面比)
+
+const $=id=>document.getElementById(id);
+const video=$("video"),overlay=$("overlay"),procView=$("procView");
+let work=document.createElement("canvas"),wctx;
+function setupWork(){work.width=PW;work.height=PH;wctx=work.getContext("2d",{willReadFrequently:true});}
+setupWork();
+function log(s){const el=$("log");el.textContent=(new Date().toTimeString().slice(0,8))+" "+s+"\n"+el.textContent.slice(0,1500);}
+
+// ---------------- スライダー表示 ----------------
+function bindVal(rid,vid,fmt){const r=$(rid),v=$(vid);const f=()=>v.textContent=fmt?fmt(r.value):r.value;r.addEventListener("input",f);f();}
+bindVal("rMargin","vMargin");
+bindVal("rDist","vDist",x=>(x/10).toFixed(1));
+bindVal("rSens","vSens");
+bindVal("rYTop","vYTop"); bindVal("rYBot","vYBot");
+bindVal("rHold","vHold",x=>(x/10).toFixed(1));
+bindVal("rEdgeTh","vEdgeTh");
+bindVal("rDot","vDot");
+
+// ---------------- アバター＝通過幅 ----------------
+function bodyWidthM(){
+  const h=parseFloat($("inHeight").value)||165;
+  const w=parseFloat($("inWeight").value)||60;
+  const bmi=w/Math.pow(h/100,2);
+  let shoulder=h*0.245;                          // 肩幅の目安
+  shoulder*= 1+Math.max(0,bmi-22)*0.012;         // 体格補正
+  const margin=parseFloat($("rMargin").value)||0;
+  const total=(shoulder+2*margin)/100;           // m
+  $("vBodyW").textContent=(total*100).toFixed(0)+" cm";
+  return total;
+}
+function updateCorridor(){
+  const bw=bodyWidthM();
+  const D=(parseFloat($("rDist").value)||15)/10;   // m
+  const FOV=62*Math.PI/180;
+  let frac=bw/(2*D*Math.tan(FOV/2));               // 画面幅比
+  frac=Math.max(0.12,Math.min(0.5,frac));
+  corr={c0:0.5-frac/2,c1:0.5+frac/2,w:frac};
+}
+["inHeight","inWeight","rMargin","rDist"].forEach(id=>$(id).addEventListener("input",updateCorridor));
+updateCorridor();
+
+// ---------------- カメラ ----------------
+async function initCam(){
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=st;await video.play();
+    $("sigLabel").textContent=t("ready");
+    log("camera OK");
+    requestAnimationFrame(loop);
+  }catch(e){$("sigLabel").textContent="camera: "+e.name;log("getUserMedia NG: "+e.message);}
+}
+
+// ---------------- 加速度 ----------------
+function onMotion(ev){
+  const a=ev.accelerationIncludingGravity;
+  if(!a||a.x===null)return;
+  const m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z),now=performance.now();
+  accWin.push({t:now,m});
+  while(accWin.length&&now-accWin[0].t>1500)accWin.shift();
+  if(accWin.length<8)return;
+  let mean=0;for(const s of accWin)mean+=s.m;mean/=accWin.length;
+  let v=0;for(const s of accWin)v+=(s.m-mean)*(s.m-mean);
+  walkLevel=Math.max(0,Math.min(1,(Math.sqrt(v/accWin.length)-0.25)/2.2));
+  motionOK=true;
+  const r=ev.rotationRate;                     // 回転ゲート用(deg/s)
+  if(r&&r.alpha!==null){
+    const w=Math.abs(r.alpha||0)+Math.abs(r.beta||0)*0.3;
+    rotYaw=0.7*rotYaw+0.3*w;
+  }
+}
+function setupMotion(){
+  if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){
+    $("btnMotion").style.display="block";
+    $("btnMotion").onclick=async()=>{
+      try{const r=await DeviceMotionEvent.requestPermission();
+        if(typeof DeviceOrientationEvent!=="undefined"&&DeviceOrientationEvent.requestPermission)
+          try{await DeviceOrientationEvent.requestPermission();}catch(e2){}
+        if(r==="granted"){window.addEventListener("devicemotion",onMotion);$("btnMotion").style.display="none";log("motion OK");}
+      }catch(e){log("motion: "+e.message);}
+    };
+  }else window.addEventListener("devicemotion",onMotion);
+}
+
+// ---------------- 画像処理 ----------------
+let grayBuf=null,edgeBuf=null;
+function grab(needEdge){
+  wctx.drawImage(video,0,0,PW,PH);
+  const d=wctx.getImageData(0,0,PW,PH).data;
+  if(!grayBuf||grayBuf.length!==PW*PH){grayBuf=new Float32Array(PW*PH);edgeBuf=new Float32Array(PW*PH);}
+  const g=grayBuf;
+  for(let i=0,p=0;i<d.length;i+=4,p++)g[p]=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+  // 1Dプロファイル
+  const prof=new Float32Array(PW);
+  for(let x=1;x<PW-1;x++){let s=0;for(let y=0;y<PH;y++)s+=Math.abs(g[y*PW+x+1]-g[y*PW+x-1]);prof[x]=s;}
+  let m=0;for(let x=0;x<PW;x++)m+=prof[x];m/=PW;
+  let v=0;for(let x=0;x<PW;x++){prof[x]-=m;v+=prof[x]*prof[x];}
+  v=Math.sqrt(v/PW)||1;for(let x=0;x<PW;x++)prof[x]/=v;
+  // エッジ(必要時)
+  if(needEdge){
+    const e=edgeBuf;
+    for(let y=1;y<PH-1;y++)for(let x=1;x<PW-1;x++){
+      const i=y*PW+x;
+      e[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+PW]-g[i-PW]);
+    }
+  }
+  return {prof,gray:g};
+}
+
+// --- 検出コア: ブロックマッチング光学フロー＋自己運動除去＋TTC ---
+// 原理:
+//  1) 8x8ブロック毎に前フレームとのSAD最小シフト(±3px)を探索 → 疎な運動場
+//  2) 運動場の中央値 = カメラの並進/回転による大域運動 → 減算した残差が
+//     「運動視差」。前進時、近い物体ほど残差が大きい(距離に反比例)
+//  3) 中央コリドーの残差発散(divergence) D から TTC = 1/D を推定 (tau理論)
+//  4) 低テクスチャブロックは分散閾値で除外(信頼度重み)
+function analyzeSectors(gray,useEdge,edgeTh){
+  const y0=(PH*(parseInt($("rYTop").value)/100))|0;
+  const y1=(PH*(parseInt($("rYBot").value)/100))|0;
+  const cx0=(PW*corr.c0)|0,cx1=(PW*corr.c1)|0;
+  const sw=cx1-cx0;
+  const lx0=Math.max(0,cx0-sw),rx1=Math.min(PW,cx1+sw);
+  let out=null;
+  if(prevGray&&prevGray.length===gray.length){
+    // ---- 1) 疎フロー ----
+    const BS=8,SR=3,nx=(PW/BS)|0,ny=(PH/BS)|0;
+    const fx=[],fy=[],fcx=[],fcy=[];
+    for(let by=1;by<ny-1;by++)for(let bx=1;bx<nx-1;bx++){
+      const x0=bx*BS,yb=by*BS;
+      // テクスチャ確認(4x4サブサンプル分散)
+      let m=0,q=0;
+      for(let y=0;y<BS;y+=2)for(let x=0;x<BS;x+=2){const v=prevGray[(yb+y)*PW+x0+x];m+=v;q+=v*v;}
+      m/=16;q=q/16-m*m;
+      if(q<25)continue;
+      let best=1e9,bdx=0,bdy=0;
+      for(let dy=-SR;dy<=SR;dy++)for(let dx=-SR;dx<=SR;dx++){
+        let sad=0;
+        for(let y=0;y<BS;y+=2)for(let x=0;x<BS;x+=2)
+          sad+=Math.abs(gray[(yb+y+dy)*PW+x0+x+dx]-prevGray[(yb+y)*PW+x0+x]);
+        if(sad<best){best=sad;bdx=dx;bdy=dy;}
+      }
+      fx.push(bdx);fy.push(bdy);fcx.push(x0+BS/2);fcy.push(yb+BS/2);
+    }
+    if(fx.length>=6){
+      // ---- 2) 自己運動除去(中央値) ----
+      const med=a=>{const b=[...a].sort((p,q)=>p-q);return b[b.length>>1];};
+      const mx=med(fx),my=med(fy);
+      // ---- 3) セクター残差＋発散 ----
+      let sS=[0,0,0],sN=[0,0,0];
+      let div=0,dn=0;
+      const CX=(cx0+cx1)/2,CY=(y0+y1)/2;
+      for(let i=0;i<fx.length;i++){
+        const rx=fx[i]-mx,ry=fy[i]-my;
+        const cxp=fcx[i],cyp=fcy[i];
+        if(cyp<y0||cyp>=y1)continue;
+        const yw=Math.pow(cyp/PH,1.5);
+        const mag=(Math.abs(rx)+Math.abs(ry))*yw;
+        if(cxp>=lx0&&cxp<cx0){sS[0]+=mag;sN[0]++;}
+        else if(cxp>=cx0&&cxp<cx1){sS[1]+=mag;sN[1]++;
+          const px=cxp-CX,py=cyp-CY,r2=px*px+py*py;
+          if(r2>36){div+=(px*rx+py*ry)/r2;dn++;}
+        }
+        else if(cxp>=cx1&&cxp<rx1){sS[2]+=mag;sN[2]++;}
+      }
+      let L=sN[0]?sS[0]/sN[0]:0,C=sN[1]?sS[1]/sN[1]:0,R=sN[2]?sS[2]/sN[2]:0;
+      // ---- 4) エッジ密度ボーナス(任意) ----
+      if(useEdge){
+        let e=[0,0,0],en=[0,0,0];
+        for(let y=y0;y<y1;y+=2)for(let x=lx0;x<rx1;x+=2){
+          const i=y*PW+x,yw=Math.pow(y/PH,1.5);
+          const k=x<cx0?0:x<cx1?1:2;
+          en[k]++;if(edgeBuf[i]>edgeTh)e[k]+=yw;
+        }
+        const d=[0,1,2].map(k=>en[k]?e[k]/en[k]:0);
+        const avg=(d[0]+d[1]+d[2])/3;
+        L+=Math.max(0,(d[0]-avg)*0.6);C+=Math.max(0,(d[1]-avg)*0.6);R+=Math.max(0,(d[2]-avg)*0.6);
+      }
+      out={L,C,R,div:dn?div/dn:0};
+    }
+  }
+  if(!prevGray||prevGray.length!==gray.length)prevGray=new Float32Array(gray.length);
+  prevGray.set(gray);
+  return out;
+}
+
+// ---------------- 相関照合 ----------------
+function matchShift(a,b){
+  let best=-2,bestS=0;
+  for(let s=-MAX_SHIFT;s<=MAX_SHIFT;s++){
+    let c=0,n=0;const lo=Math.max(0,-s),hi=Math.min(PW,PW-s);
+    for(let x=lo;x<hi;x++){c+=a[x]*b[x+s];n++;}
+    c/=n;if(c>best){best=c;bestS=s;}
+  }
+  return {corr:best,shift:bestS};
+}
+
+// ---------------- メインループ ----------------
+let lastProc=0;
+function loop(tm){
+  requestAnimationFrame(loop);
+  if(tm-lastProc<PROC_MS||video.readyState<2)return;
+  lastProc=tm;
+  const viewMode=$("selView").value;
+  const useEdge=$("chkEdge").checked;
+  const edgeTh=parseInt($("rEdgeTh").value)||60;
+  const needEdge=useEdge||viewMode==="edge";
+  const {prof,gray}=grab(needEdge);
+
+  const walking=$("chkAlways").checked?true:walkLevel>0.12;
+  $("stWalk").textContent=!motionOK?t("walkNone"):
+    walkLevel<0.12?t("walkStop"):walkLevel<0.4?t("walkSlow"):walkLevel<0.75?t("walkNorm"):t("walkFast");
+
+  let avoid=null;
+  if(mode==="repeat"||mode==="avoid"||mode==="gps"){
+    const sec=analyzeSectors(gray,useEdge,edgeTh);
+    const rotGate=rotYaw>70;                     // 大きな回転中は判定凍結
+    if(sec&&!rotGate){
+      const dtS=lastFlowT?Math.max(0.05,(tm-lastFlowT)/1000):0.12;
+      const speedFactor=motionOK?(0.35+0.65*walkLevel):0.7;
+      const raw=[sec.L*speedFactor,sec.C*speedFactor,sec.R*speedFactor];
+      // ---- CFAR: 静穏時に雑音統計(μ,σ)を学習 → z=(x-μ)/σ ----
+      const zz=[0,0,0];
+      for(let k=0;k<3;k++){
+        const mu=noise.mu[k],sd=Math.max(noise.sd[k],0.004);
+        zz[k]=(raw[k]-mu)/sd;
+        const lr=(tm<calibUntil)?0.15:(zz[k]<2?0.02:0);   // 較正中は速く学習
+        if(lr>0){
+          noise.mu[k]+=lr*(raw[k]-mu);
+          noise.sd[k]+=lr*(Math.abs(raw[k]-mu)-noise.sd[k]);
+        }
+      }
+      const a=0.5;
+      zL=a*zL+(1-a)*zz[0];zC=a*zC+(1-a)*zz[1];zR=a*zR+(1-a)*zz[2];
+      // ---- TTC: 発散→接触余裕時間 ----
+      const Dps=sec.div/dtS;
+      const tRaw=Dps>0.03?1/Dps:Infinity;
+      ttcC=isFinite(ttcC)?Math.min(0.6*ttcC+0.4*tRaw,9.9):Math.min(tRaw,9.9);
+      if(!isFinite(tRaw)&&ttcC>6)ttcC=Infinity;
+    }
+    lastFlowT=tm;
+    emaL=Math.min(1,Math.max(0,zL/8));emaC=Math.min(1,Math.max(0,zC/8));emaR=Math.min(1,Math.max(0,zR/8));
+    drawRisk(emaL,emaC,emaR);
+    $("stRisk").textContent=Math.max(zL,zC,zR).toFixed(1)+
+      (isFinite(ttcC)&&ttcC<9?" · "+ttcC.toFixed(1)+"s":"");
+    if(tm<calibUntil){$("topCard").className="idle";$("topCard").textContent=t("cardCalib");}
+    else if(walking)avoid=decideAvoid(tm);
+    else{$("topCard").className="idle";$("topCard").textContent=t("cardIdle");}
+    const po=picoOverride();
+    if(po)avoid=po;   // センサの物理検出は常に優先(停止中も有効)
+  }else{
+    $("topCard").className="";emaL=emaC=emaR=0;zL=zC=zR=0;ttcC=Infinity;prevGray=null;drawRisk(0,0,0);
+  }
+
+  if(mode==="teach")stepTeach(prof,tm);
+  else if(mode==="repeat")stepRepeat(prof,tm,avoid);
+  else if(mode==="avoid")stepAvoid(tm,avoid);
+  else if(mode==="gps")stepGps(tm,avoid);
+
+  renderProc(viewMode,edgeTh);
+  drawOverlay(prof);
+  if($("chkAI").checked)aiTick(tm);
+  if(logOnFlag&&(mode==="repeat"||mode==="avoid"||mode==="gps"))logRow(tm);
+}
+
+// ---------------- 研究用CSVロガー ----------------
+// 1行/処理フレーム(≈9Hz)。列: ISO時刻,経過ms,モード,歩行,回転,zL,zC,zR,
+// TTC,発報コード,一致度,横ズレ,KF,PICO(前方,床,超音波,コード,理由)
+const LOG_HEADER="iso,t_ms,mode,walk,rot_dps,zL,zC,zR,ttc_s,emit,corr,shift,kf,pico_front,pico_floor,pico_us,pico_code,pico_why,lat,lon,gps_acc_m,remain_m,ai_obj,signal";
+const LOG_MAX=60000;
+function logRow(tm){
+  if(logBuf.length>=LOG_MAX)return;
+  const ps=picoState&&performance.now()-picoState.t<1500?picoState:null;
+  const ev=lastEmitCode;lastEmitCode="";
+  logBuf.push([
+    new Date().toISOString(),Math.round(tm),mode,walkLevel.toFixed(2),rotYaw.toFixed(0),
+    zL.toFixed(2),zC.toFixed(2),zR.toFixed(2),
+    isFinite(ttcC)?ttcC.toFixed(2):"",ev,
+    $("stCorr").textContent==="—"?"":$("stCorr").textContent,
+    typeof window._lastShift==="number"?window._lastShift:"",
+    mode==="repeat"?(kfIndex+1):"",
+    ps?ps.f:"",ps?ps.fl:"",ps?ps.u:"",ps?ps.c:"",ps?ps.why:"",
+    G.pos?G.pos.lat.toFixed(6):"",G.pos?G.pos.lon.toFixed(6):"",
+    G.pos?Math.round(G.pos.acc):"",G.route?Math.round(G.remain):"",
+    AI.lastObj||"",AI.sigState||""
+  ].join(","));
+  if(logBuf.length%20===0)$("vLogRows").textContent=logBuf.length;
+}
+function cfgSnapshot(){
+  const ids=["inHeight","inWeight","rMargin","rDist","rSens","rYTop","rYBot","rHold",
+    "rEdgeTh","rDot","selRes","selView","wsUrl"];
+  const chk=["chkAvatar","chkEdge","chkAlways","chkFine","chkWideK",
+    "optBuzz","optVib","optTTS","optWS","optBLE","chkLog"];
+  const o={v:7};
+  ids.forEach(i=>o[i]=$(i).value);
+  chk.forEach(i=>o[i]=$(i).checked);
+  return o;
+}
+$("chkLog").onchange=e=>{logOnFlag=e.target.checked;};
+$("btnLogDl").onclick=()=>{
+  const head="# OKIMO-LOG v7 exported="+new Date().toISOString()+
+    " config="+JSON.stringify(cfgSnapshot()).replace(/,/g,";")+"\n";
+  const csv=head+LOG_HEADER+"\n"+logBuf.join("\n")+"\n";
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="okimo_log_"+Date.now()+".csv";a.click();
+  log("CSV: "+logBuf.length+" rows");
+};
+$("btnLogClear").onclick=()=>{logBuf=[];$("vLogRows").textContent="0";};
+$("btnCfgExp").onclick=()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(cfgSnapshot(),null,1)],{type:"application/json"}));
+  a.download="okimo_config_"+Date.now()+".json";a.click();
+};
+$("btnCfgImp").onclick=()=>$("cfgIn").click();
+$("cfgIn").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const o=JSON.parse(await f.text());
+    for(const k in o){
+      const el=document.getElementById(k);
+      if(!el)continue;
+      if(el.type==="checkbox")el.checked=!!o[k];
+      else el.value=o[k];
+      el.dispatchEvent(new Event("input"));el.dispatchEvent(new Event("change"));
+    }
+    log("config imported");
+  }catch(err){log("config NG: "+err.message);}
+};
+
+// ---------------- 行動決定 ----------------
+function decideAvoid(tm){
+  // zスコア(CFAR)判定: 感度→警告z(3..7)、SOSはその1.8倍またはTTC切迫
+  const sens=parseInt($("rSens").value)||5;
+  const ZW=7.5-0.5*sens, ZS=ZW*1.8;
+  const TTC_W=2.5, TTC_S=1.2;                 // 接触余裕(秒)
+  const HOLD=(parseInt($("rHold").value)||15)*100;
+  const L=zL,C=zC,R=zR,maxv=Math.max(L,C,R);
+  const ttcTxt=isFinite(ttcC)&&ttcC<9?" ("+ttcC.toFixed(1)+"s)":"";
+  const danger=C>ZS||(L>ZS&&R>ZS)||ttcC<TTC_S;
+  if(danger){
+    cntW=0;sosLatch=true;sosClearSince=0;
+    return{code:"SOS",say:t("sStopCheck"),card:"warn",msg:t("cardStop")+ttcTxt};
+  }
+  if(sosLatch){
+    if(maxv<ZW*0.5&&!(ttcC<TTC_W)){
+      if(!sosClearSince)sosClearSince=tm;
+      if(tm-sosClearSince>HOLD){sosLatch=false;return{code:"K",say:t("sGo"),card:"",msg:""};}
+    }else sosClearSince=0;
+    return{code:"SOS",say:"",card:"warn",msg:t("cardHold")};
+  }
+  const warn=C>ZW||ttcC<TTC_W;
+  cntW=warn?Math.min(cntW+1,4):Math.max(cntW-1,0);   // 漏れ積分でチラつき防止
+  if(cntW>=2){
+    if(L<R-1.2)return{code:"L",say:t("sBitL"),card:"slow",msg:t("cardFrontL")+ttcTxt};
+    if(R<L-1.2)return{code:"R",say:t("sBitR"),card:"slow",msg:t("cardFrontR")+ttcTxt};
+    return{code:null,say:t("sSlow"),card:"slow",msg:t("cardSlow")+ttcTxt};
+  }
+  if(L>ZW&&L>R+1.5)return{code:"R",say:t("sBitR"),card:"slow",msg:t("cardLeft")};
+  if(R>ZW&&R>L+1.5)return{code:"L",say:t("sBitL"),card:"slow",msg:t("cardRight")};
+  return null;
+}
+
+// ---------------- 教示/再生/回避 ----------------
+function stepTeach(prof,tm){
+  if(route.length===0){saveKF(prof);return;}
+  const {corr:c}=matchShift(prof,route[route.length-1].profile);
+  $("stCorr").textContent=c.toFixed(2);
+  if(c<0.78&&tm-lastKFTime>MIN_KF_MS)saveKF(prof);
+}
+function saveKF(prof){
+  lastKFTime=performance.now();
+  const thumb=work.toDataURL("image/jpeg",0.5);
+  route.push({profile:prof,thumb});
+  const img=document.createElement("img");img.src=thumb;
+  if(route.length===1)$("kfStrip").innerHTML="";
+  $("kfStrip").appendChild(img);
+  $("stKF").textContent=route.length;
+  log("KF #"+route.length);
+}
+function stepRepeat(prof,tm,avoid){
+  if(avoid){
+    showCard(avoid);
+    if(avoid.code)emit(avoid.code,avoid.say);
+    else if(avoid.say)speakOnly(avoid.say);
+    if(avoid.code==="SOS"||avoid.code==="L"||avoid.code==="R")return;
+  }else $("topCard").className="";
+  const cur=matchShift(prof,route[kfIndex].profile);
+  let best=cur,bestIdx=kfIndex;
+  for(let k=1;k<=2;k++){if(kfIndex+k<route.length){
+    const m=matchShift(prof,route[kfIndex+k].profile);
+    if(m.corr>best.corr&&m.corr>ADVANCE_TH){best=m;bestIdx=kfIndex+k;}}}
+  if(bestIdx!==kfIndex){kfIndex=bestIdx;markStrip();}
+  $("stKF").textContent=(kfIndex+1)+"/"+route.length;
+  $("stCorr").textContent=best.corr.toFixed(2);
+  if(best.corr<LOST_TH){if(!lostSince)lostSince=tm;if(tm-lostSince>LOST_MS){emit("S",t("sStop"));return;}}
+  else lostSince=0;
+  if(kfIndex===route.length-1&&best.corr>0.6){emit("O",t("sArrive"));stopRepeat(true);return;}
+  let dead=5;if($("chkFine").checked)dead=3;if($("chkWideK").checked)dead=10;
+  const code=best.shift>dead?"R":best.shift<-dead?"L":"K";
+  emit(code,code==="R"?t("sR"):code==="L"?t("sL"):"");
+  window._lastShift=best.shift;
+}
+function stepAvoid(tm,avoid){
+  if(avoid){showCard(avoid);
+    if(avoid.code)emit(avoid.code,avoid.say);
+    else if(avoid.say)speakOnly(avoid.say);
+  }else{$("topCard").className="";emit("K","");}
+}
+function showCard(av){
+  if(av.card){$("topCard").className=av.card;$("topCard").textContent=av.msg;
+    if(av.card==="warn"||av.card==="slow"){
+      if($("chkAI").checked)aiNameFor(av.code==="L"?"R":av.code==="R"?"L":"C");
+    }
+  }
+  else $("topCard").className="";
+}
+
+// ---------------- 出力 ----------------
+const LBL={K:"lK",L:"lL",R:"lR",S:"lS",O:"lO",SOS:"lSOS"};
+function emit(code,say){
+  const now=performance.now();
+  if(code===lastSignal&&now-lastSignalTime<REPEAT_SIGNAL_MS)return;
+  lastSignal=code;lastSignalTime=now;
+  lastEmitCode=code;
+  $("glyph").textContent=GLYPH[code];
+  $("sigLetter").textContent=code;
+  $("sigMorse").textContent=MORSE[code].replace(/\./g,"·").replace(/-/g,"—");
+  $("sigLabel").textContent=t(LBL[code]);
+  $("indicator").className=CLS[code];
+  if($("optVib").checked&&navigator.vibrate)navigator.vibrate(morsePattern(MORSE[code]));
+  if($("optBuzz").checked)beepMorse(MORSE[code]);
+  if($("optTTS").checked&&say)speak(say);
+  if($("optWS").checked&&ws&&ws.readyState===1){try{ws.send(code);}catch(e){}}
+  if($("optBLE").checked)bleSend(code);
+}
+function speakOnly(say){if($("optTTS").checked)speak(say);}
+function units(){const d=parseInt($("rDot").value)||90;return{D:d,H:d*3,G:d};}
+function morsePattern(m){const u=units();const p=[];for(const c of m){p.push(c==="."?u.D:u.H);p.push(u.G);}p.pop();return p;}
+function beepMorse(m){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const u=units();let tt=audioCtx.currentTime;
+  for(const c of m){const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.frequency.value=600;o.connect(g);g.connect(audioCtx.destination);
+    const dur=(c==="."?u.D:u.H)/1000;g.gain.setValueAtTime(0.25,tt);
+    o.start(tt);o.stop(tt+dur);tt+=dur+u.G/1000;}}
+let lastSpokeT=0,lastSpokeText="";
+function speak(text){
+  if(!("speechSynthesis" in window))return;
+  const now=performance.now();
+  if(text===lastSpokeText&&now-lastSpokeT<2500)return;
+  lastSpokeT=now;lastSpokeText=text;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=t("ttsLang");u.rate=1.15;
+  speechSynthesis.cancel();speechSynthesis.speak(u);
+}
+
+// ---------------- 表示 ----------------
+function renderProc(viewMode,edgeTh){
+  if(viewMode==="normal"){procView.style.display="none";return;}
+  procView.style.display="block";
+  if(procView.width!==PW){procView.width=PW;procView.height=PH;}
+  const ctx=procView.getContext("2d");
+  const img=ctx.createImageData(PW,PH);
+  for(let i=0;i<PW*PH;i++){
+    let v;
+    if(viewMode==="gray")v=grayBuf?grayBuf[i]:0;
+    else v=(edgeBuf&&edgeBuf[i]>edgeTh)?255:0;
+    img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v;img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  procView.style.imageRendering="pixelated";
+}
+function drawRisk(L,C,R){
+  const f=v=>Math.min(100,v*900);
+  const set=(id,v)=>{const el=$(id);el.style.width=f(v)+"%";
+    el.style.background=v>0.05?"var(--warn)":v>0.025?"var(--teach)":"var(--repeat)";};
+  set("rbL",L);set("rbC",C);set("rbR",R);
+  $("stRisk").textContent=(Math.max(L,C,R)*100).toFixed(0);
+}
+function drawOverlay(prof){
+  const c=overlay,x=c.getContext("2d");
+  if(c.width!==c.clientWidth){c.width=c.clientWidth;c.height=c.clientHeight;}
+  x.clearRect(0,0,c.width,c.height);
+  // プロファイル波形
+  x.strokeStyle="rgba(61,220,151,.9)";x.lineWidth=1.5;x.beginPath();
+  for(let i=0;i<PW;i++){const px=i/PW*c.width,py=c.height-8-Math.max(-2,Math.min(2,prof[i]))*12-24;i?x.lineTo(px,py):x.moveTo(px,py);}
+  x.stroke();
+  if(mode==="repeat"||mode==="avoid"||mode==="gps"){
+    const yT=c.height*(parseInt($("rYTop").value)/100),yB=c.height*(parseInt($("rYBot").value)/100);
+    const cx0=c.width*corr.c0,cx1=c.width*corr.c1,sw=cx1-cx0;
+    const lx0=Math.max(0,cx0-sw),rx1=Math.min(c.width,cx1+sw);
+    const zones=[[lx0,cx0,emaL],[cx0,cx1,emaC],[cx1,rx1,emaR]];
+    for(const [a,b,v] of zones){
+      x.fillStyle=v>0.05?"rgba(255,93,93,.28)":v>0.025?"rgba(245,165,36,.20)":"rgba(61,220,151,.07)";
+      x.fillRect(a,yT,b-a,yB-yT);
+      x.strokeStyle="rgba(255,255,255,.22)";x.lineWidth=1;x.strokeRect(a,yT,b-a,yB-yT);
+    }
+    // 半透明アバター（通過幅シルエット）
+    if($("chkAvatar").checked)drawAvatar(x,c.width,c.height,cx0,cx1,yB);
+  }
+  if(mode==="repeat"&&typeof window._lastShift==="number"){
+    const tx=c.width/2+window._lastShift/PW*c.width;
+    x.strokeStyle="rgba(245,165,36,.95)";x.lineWidth=3;
+    x.beginPath();x.moveTo(tx,c.height*0.25);x.lineTo(tx,c.height*0.75);x.stroke();
+  }
+}
+function drawAvatar(x,cw,ch,cx0,cx1,yBase){
+  const W=cx1-cx0, cx=(cx0+cx1)/2;
+  const H=Math.min(ch*0.72,W*2.4);          // 人型の高さ
+  const top=yBase-H;
+  x.save();
+  x.fillStyle="rgba(106,183,255,0.16)";
+  x.strokeStyle="rgba(106,183,255,0.55)";
+  x.lineWidth=2;
+  x.beginPath();
+  const r=W*0.17;                            // 頭
+  x.arc(cx,top+r,r,0,Math.PI*2);
+  x.moveTo(cx-W/2,top+r*2.4);                // 肩から下のシルエット
+  x.quadraticCurveTo(cx-W/2,top+r*2.0,cx-W*0.30,top+r*2.0);
+  x.lineTo(cx+W*0.30,top+r*2.0);
+  x.quadraticCurveTo(cx+W/2,top+r*2.0,cx+W/2,top+r*2.4);
+  x.lineTo(cx+W*0.40,yBase);
+  x.lineTo(cx-W*0.40,yBase);
+  x.closePath();
+  x.fill();x.stroke();
+  // 通過幅ガイド線
+  x.setLineDash([6,5]);
+  x.strokeStyle="rgba(106,183,255,0.45)";
+  x.beginPath();x.moveTo(cx0,yBase);x.lineTo(cx0,top);x.moveTo(cx1,yBase);x.lineTo(cx1,top);x.stroke();
+  x.setLineDash([]);
+  x.restore();
+}
+
+// ---------------- UI 状態 ----------------
+function markStrip(){[...$("kfStrip").querySelectorAll("img")].forEach((im,i)=>im.classList.toggle("now",i===kfIndex));}
+function setMode(m){
+  mode=m;const b=$("modeBadge");
+  b.className=m==="teach"?"teach":m==="repeat"?"repeat":(m==="avoid"||m==="gps")?"avoid":"";
+  b.textContent=m==="teach"?t("mTeach"):m==="repeat"?t("mRepeat"):m==="avoid"?t("mAvoid"):m==="gps"?t("mGps"):t("mIdle");
+  $("btnTeach").textContent=m==="teach"?t("btnTeachStop"):t("btnTeach");
+  $("btnTeach").className=m==="teach"?"stop":"primary-teach";
+  $("btnRepeat").textContent=m==="repeat"?t("btnRepeatStop"):t("btnRepeat");
+  $("btnRepeat").className=m==="repeat"?"stop":"primary-repeat";
+  $("btnAvoid").textContent=m==="avoid"?t("btnAvoidStop"):t("btnAvoid");
+  $("btnAvoid").className=m==="avoid"?"stop":"avoid";
+  $("btnRepeat").disabled=(m==="teach"||m==="avoid"||m==="gps")||route.length<2;
+  $("btnTeach").disabled=(m==="repeat"||m==="avoid"||m==="gps");
+  $("btnAvoid").disabled=(m==="teach"||m==="repeat"||m==="gps");
+  $("btnGps").textContent=m==="gps"?t("btnGpsStop"):t("btnGpsStart");
+  $("btnGps").className=m==="gps"?"stop":"avoid";
+  if(m!=="gps")$("btnGps").disabled=(m!=="idle")||!G.dest;
+  $("btnExport").disabled=$("btnClear").disabled=route.length===0||m!=="idle";
+}
+
+// ---------------- ボタン ----------------
+$("btnLang").onclick=()=>{LANG=LANG==="ja"?"en":"ja";applyLang();};
+$("btnTeach").onclick=()=>{
+  if(mode==="teach"){setMode("idle");log(t("logTeachEnd")+": "+route.length+" KF");}
+  else{route=[];kfIndex=0;$("kfStrip").innerHTML="";setMode("teach");
+    $("sigLabel").textContent=t("teachGuide");$("indicator").className="";
+    $("glyph").textContent="●";$("sigLetter").textContent="REC";$("sigMorse").textContent="";log(t("logTeach"));}
+};
+$("btnRepeat").onclick=()=>{
+  if(mode==="repeat")stopRepeat(false);
+  else{kfIndex=0;lostSince=0;lastSignal="";prevGray=null;emaL=emaC=emaR=0;zL=zC=zR=0;ttcC=Infinity;sosLatch=false;
+    noise={mu:[0.02,0.02,0.02],sd:[0.02,0.02,0.02]};calibUntil=performance.now()+2500;
+    setMode("repeat");markStrip();if($("optWS").checked)connectWS();log(t("logRep")+" ("+route.length+" KF)");}
+};
+$("btnAvoid").onclick=()=>{
+  if(mode==="avoid"){setMode("idle");$("topCard").className="";$("glyph").textContent="·";
+    $("indicator").className="";$("sigLabel").textContent=t("avStop");log(t("logAvoidEnd"));}
+  else{prevGray=null;emaL=emaC=emaR=0;zL=zC=zR=0;ttcC=Infinity;sosLatch=false;lastSignal="";
+    noise={mu:[0.02,0.02,0.02],sd:[0.02,0.02,0.02]};calibUntil=performance.now()+2500;
+    setMode("avoid");log(t("logAvoid"));}
+};
+function stopRepeat(goal){setMode("idle");$("topCard").className="";
+  if(!goal){$("sigLabel").textContent=t("repStop");$("indicator").className="";$("glyph").textContent="·";}
+  log(goal?t("logArrive"):t("repStop"));}
+$("btnClear").onclick=()=>{route=[];$("kfStrip").innerHTML='<span class="empty">'+t("kfEmpty")+'</span>';
+  $("stKF").textContent="0/0";setMode("idle");};
+
+// ---------------- 解像度 ----------------
+$("selRes").onchange=e=>{
+  const w=parseInt(e.target.value);PW=w;PH=Math.round(w*0.75);
+  MAX_SHIFT=Math.round(w*0.29);setupWork();prevGray=null;grayBuf=null;edgeBuf=null;
+  log("res "+PW+"×"+PH);
+};
+
+// ---------------- 入出力 ----------------
+$("btnExport").onclick=()=>{
+  const data={v:4,res:PW,created:new Date().toISOString(),
+    kf:route.map(k=>({p:[...k.profile].map(x=>+x.toFixed(4)),t:k.thumb}))};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:"application/json"}));
+  a.download="okimo_route_"+Date.now()+".json";a.click();
+};
+$("btnImport").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const data=JSON.parse(await f.text());
+    if(data.res&&data.res!==PW){PW=data.res;PH=Math.round(PW*0.75);MAX_SHIFT=Math.round(PW*0.29);
+      setupWork();grayBuf=null;edgeBuf=null;$("selRes").value=String(PW);}
+    route=data.kf.map(k=>({profile:new Float32Array(k.p),thumb:k.t}));
+    $("kfStrip").innerHTML="";route.forEach(k=>{const im=document.createElement("img");im.src=k.thumb;$("kfStrip").appendChild(im);});
+    $("stKF").textContent=route.length;setMode("idle");log("import: "+route.length+" KF");
+  }catch(err){log("import NG: "+err.message);}
+};
+function connectWS(){
+  try{if(ws)ws.close();ws=new WebSocket($("wsUrl").value);
+    ws.onopen=()=>{$("wsDot").className="on";log("PICO OK");};
+    ws.onclose=()=>{$("wsDot").className="";};
+    ws.onerror=()=>{$("wsDot").className="";log("PICO NG");};
+  }catch(e){log("WS: "+e.message);}
+}
+$("optWS").onchange=e=>{if(e.target.checked)connectWS();else if(ws)ws.close();};
+
+// ---------------- PICO BLE (Web Bluetooth / Nordic UART) ----------------
+const NUS_SVC="6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_RX ="6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_TX ="6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+let picoState=null;   // {f,fl,u,c,why,t}
+function onPicoNotify(ev){
+  try{
+    const txt=new TextDecoder().decode(ev.target.value).trim();
+    const a=txt.split(",");          // "前方,床,超音波,コード,理由"
+    if(a.length>=5){
+      picoState={f:+a[0],fl:+a[1],u:+a[2],c:a[3],why:a[4],t:performance.now()};
+      $("pFront").textContent=picoState.f>0?picoState.f:"—";
+      $("pFloor").textContent=picoState.fl>0?picoState.fl:"—";
+      $("pUS").textContent=picoState.u>0?picoState.u:"—";
+      $("pCode").textContent=picoState.c+"/"+picoState.why;
+      $("pCode").style.color=picoState.c==="K"?"var(--repeat)":"var(--warn)";
+    }
+  }catch(e){}
+}
+// PICOセンサの安全信号は映像検出より優先
+function picoOverride(){
+  if(!picoState||performance.now()-picoState.t>1500)return null;
+  if(picoState.c==="SOS")
+    return {code:"SOS",say:picoState.why==="d"?t("sDrop"):t("sStopCheck"),
+            card:"warn",msg:picoState.why==="d"?t("cardPicoDrop"):t("cardStop")};
+  if(picoState.c==="S")
+    return {code:"S",say:picoState.why==="g"?t("sGlass"):t("sStopCheck"),
+            card:"warn",msg:picoState.why==="g"?t("cardPicoGlass"):t("cardPicoFront")};
+  return null;
+}
+let bleDev=null,bleRx=null,bleBusy=false;
+async function bleConnect(){
+  if(!navigator.bluetooth){log(t("bleNo"));return;}
+  try{
+    bleDev=await navigator.bluetooth.requestDevice({
+      filters:[{services:[NUS_SVC]},{namePrefix:"OKIMO"}],
+      optionalServices:[NUS_SVC]});
+    bleDev.addEventListener("gattserverdisconnected",()=>{
+      bleRx=null;$("bleDot").className="";log(t("bleLost"));});
+    const gatt=await bleDev.gatt.connect();
+    const svc=await gatt.getPrimaryService(NUS_SVC);
+    bleRx=await svc.getCharacteristic(NUS_RX);
+    try{
+      const tx=await svc.getCharacteristic(NUS_TX);
+      await tx.startNotifications();
+      tx.addEventListener("characteristicvaluechanged",onPicoNotify);
+      $("picoPanel").style.display="grid";
+    }catch(e){log("BLE notify: "+e.message);}
+    $("bleDot").className="on";$("optBLE").checked=true;
+    log(t("bleOK")+" ("+(bleDev.name||"?")+")");
+    bleSend("D:"+($("rDot").value||90));      // 短点長を初回同期
+  }catch(e){log("BLE: "+e.message);}
+}
+async function bleSend(s){
+  if(!bleRx||bleBusy)return;
+  bleBusy=true;
+  try{await bleRx.writeValue(new TextEncoder().encode(s));}catch(e){}
+  bleBusy=false;
+}
+$("btnBLE").onclick=bleConnect;
+// 短点長スライダー変更 → PICOへ同期(確定時)
+$("rDot").addEventListener("change",()=>{
+  if(bleRx)bleSend("D:"+$("rDot").value);
+});
+
+// ================= 屋外ナビ（GPS + OSRM/Nominatim） =================
+// 構成:
+//  目的地: Nominatim ジオコーディング(キー不要)
+//  経路  : OSRM 公開サーバ foot(徒歩)、不可なら driving にフォールバック
+//  測位  : watchPosition(高精度) / 方位: GPS進行方位→コンパスの順で採用
+//  案内  : 15m先の経路点への方位差 → K/L/R モールス(方向修正)
+//          曲がり角は 40m前に音声予告・10m前に実行指示 (turn-by-turn)
+//  安全  : 障害物回避(カメラ/PICO)が常に優先。到着±12mで O
+const G={dest:null,destName:"",route:null,cum:null,steps:[],pos:null,
+         watch:null,remain:0,nearIdx:0,annIdx:-1,annPhase:0,lastReroute:0};
+let compassHead=null;
+function onOrient(e){
+  let h=null;
+  if(e.webkitCompassHeading!=null)h=e.webkitCompassHeading;        // iOS
+  else if(e.absolute&&e.alpha!=null)h=(360-e.alpha)%360;           // Android
+  if(h!=null)compassHead=h;
+}
+window.addEventListener("deviceorientationabsolute",onOrient,true);
+window.addEventListener("deviceorientation",onOrient,true);
+
+const R_E=6371000,rad=d=>d*Math.PI/180,deg=r=>r*180/Math.PI;
+function havDist(a,b){
+  const dLa=rad(b.lat-a.lat),dLo=rad(b.lon-a.lon);
+  const h=Math.sin(dLa/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLo/2)**2;
+  return 2*R_E*Math.asin(Math.sqrt(h));
+}
+function bearing(a,b){
+  const y=Math.sin(rad(b.lon-a.lon))*Math.cos(rad(b.lat));
+  const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-
+          Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lon-a.lon));
+  return (deg(Math.atan2(y,x))+360)%360;
+}
+function normAng(a){return ((a+540)%360)-180;}
+
+// ---- 目的地検索 ----
+$("btnGeo").onclick=async()=>{
+  const q=$("inDest").value.trim();
+  if(!q)return;
+  $("gDestTxt").textContent="…";
+  try{
+    const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language="+LANG+"&q="+encodeURIComponent(q));
+    const j=await r.json();
+    if(!j.length){$("gDestTxt").textContent=t("destNG");return;}
+    G.dest={lat:+j[0].lat,lon:+j[0].lon};
+    G.destName=j[0].display_name.split(",").slice(0,3).join(",");
+    $("gDestTxt").textContent="📍 "+G.destName;
+    $("btnGps").disabled=false;
+    $("btnGmap").disabled=false;
+    log("dest: "+G.destName);
+  }catch(e){$("gDestTxt").textContent="NG: "+e.message;}
+};
+$("btnGmap").onclick=()=>{
+  if(!G.dest)return;
+  window.open("https://www.google.com/maps/dir/?api=1&destination="+
+    G.dest.lat+","+G.dest.lon+"&travelmode=walking","_blank");
+};
+
+// ---- 経路取得 ----
+async function fetchRoute(from){
+  for(const prof of ["foot","driving"]){
+    try{
+      const u="https://router.project-osrm.org/route/v1/"+prof+"/"+
+        from.lon+","+from.lat+";"+G.dest.lon+","+G.dest.lat+
+        "?overview=full&geometries=geojson&steps=true";
+      const j=await (await fetch(u)).json();
+      if(j.code==="Ok"&&j.routes&&j.routes.length){
+        const pts=j.routes[0].geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}));
+        const cum=[0];
+        for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+havDist(pts[i-1],pts[i]));
+        G.route=pts;G.cum=cum;G.remain=cum[cum.length-1];
+        G.steps=j.routes[0].legs[0].steps.map(st=>({
+          lat:st.maneuver.location[1],lon:st.maneuver.location[0],
+          mod:(st.maneuver.modifier||""),type:st.maneuver.type}));
+        G.nearIdx=0;G.annIdx=-1;G.annPhase=0;
+        log(t("routeOK")+" "+Math.round(G.remain)+"m ("+prof+")");
+        return true;
+      }
+    }catch(e){}
+  }
+  log(t("noRoute"));
+  return false;
+}
+
+// ---- ナビ開始/停止 ----
+$("btnGps").onclick=async()=>{
+  if(mode==="gps"){stopGpsNav();return;}
+  if(!G.dest){log(t("needDest"));return;}
+  $("gRemain").textContent="…";
+  G.watch=navigator.geolocation.watchPosition(onFix,
+    e=>log("GPS: "+e.message),
+    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  prevGray=null;emaL=emaC=emaR=0;zL=zC=zR=0;ttcC=Infinity;sosLatch=false;lastSignal="";
+  noise={mu:[0.02,0.02,0.02],sd:[0.02,0.02,0.02]};calibUntil=performance.now()+2500;
+  G.route=null;
+  setMode("gps");
+  $("sigLabel").textContent=t("gpsWait");
+};
+function stopGpsNav(){
+  if(G.watch!=null)navigator.geolocation.clearWatch(G.watch);
+  G.watch=null;setMode("idle");$("topCard").className="";
+  $("glyph").textContent="·";$("indicator").className="";$("sigLabel").textContent=t("repStop");
+}
+function onFix(p){
+  G.pos={lat:p.coords.latitude,lon:p.coords.longitude,
+         acc:p.coords.accuracy,head:p.coords.heading,spd:p.coords.speed};
+  $("gAcc").textContent=Math.round(p.coords.accuracy);
+  if(!G.route&&G.dest)fetchRoute(G.pos);
+}
+
+// ---- 誘導本体(処理フレーム毎に呼ばれる) ----
+function dirWord(mod){
+  if(mod.indexOf("left")>=0)return{code:"L",w:t("dirL")};
+  if(mod.indexOf("right")>=0)return{code:"R",w:t("dirR")};
+  if(mod.indexOf("uturn")>=0)return{code:"L",w:t("dirU")};
+  return{code:"K",w:t("dirS")};
+}
+function gpsGuide(tm){
+  if(!G.pos){$("sigLabel").textContent=t("gpsWait");return;}
+  if(!G.route)return;
+  // 最近傍経路点(前回位置の周辺から探索)
+  let best=1e12,bi=G.nearIdx;
+  const lo=Math.max(0,G.nearIdx-20),hi=Math.min(G.route.length,G.nearIdx+40);
+  for(let i=lo;i<hi;i++){
+    const d=havDist(G.pos,G.route[i]);
+    if(d<best){best=d;bi=i;}
+  }
+  G.nearIdx=bi;
+  G.remain=(G.cum[G.cum.length-1]-G.cum[bi])+best;
+  $("gRemain").textContent=G.remain>1000?(G.remain/1000).toFixed(2)+"km":Math.round(G.remain)+"m";
+  // 到着
+  if(havDist(G.pos,G.dest)<12){
+    emit("O",t("sArrive"));$("gNext").textContent=t("arrived");
+    stopGpsNav();return;
+  }
+  // 経路逸脱 → 再探索(20秒スロットル)
+  if(best>35&&G.pos.acc<30&&tm-G.lastReroute>20000){
+    G.lastReroute=tm;
+    $("topCard").className="slow";$("topCard").textContent=t("reroute");
+    speakOnly(t("reroute"));
+    fetchRoute(G.pos);return;
+  }
+  // 次の曲がり角: 現在より先で最初のマニューバ
+  let nxt=null,nd=1e12;
+  for(const st of G.steps){
+    if(st.type==="depart")continue;
+    const d=havDist(G.pos,st);   // マニューバ位置は最近傍点で近似
+    const ahead=bearingAheadOf(st);
+    if(ahead&&d<nd){nd=d;nxt=st;}
+  }
+  if(nxt){
+    const dw=dirWord(nxt.mod||nxt.type);
+    $("gNext").textContent=Math.round(nd)+"m "+dw.w;
+    const key=nxt.lat+","+nxt.lon;
+    if(G.annKey!==key){G.annKey=key;G.annPhase=0;}
+    if(nd<40&&G.annPhase<1){G.annPhase=1;
+      const dd=Math.max(10,Math.round(nd/10)*10);
+      speakOnly(LANG==="ja"?dd+t("annPre1")+dw.w:"In "+dd+t("annPre1")+dw.w);}
+    if(nd<10&&G.annPhase<2){G.annPhase=2;speakOnly(dw.w+t("annNow"));}
+  }else $("gNext").textContent=t("dirS");
+  // 方向修正: 15m先の経路点へ向く
+  let li=bi;
+  while(li<G.route.length-1&&G.cum[li]-G.cum[bi]<15)li++;
+  const want=bearing(G.pos,G.route[li]);
+  const head=(G.pos.head!=null&&G.pos.spd>0.5)?G.pos.head:compassHead;
+  $("gHead").textContent=head!=null?Math.round(head)+"°":"—";
+  if(head==null){emit("K","");return;}     // 方位不明時は直進表示のみ
+  const diff=normAng(want-head);
+  emit(Math.abs(diff)<25?"K":diff>0?"R":"L","");   // 修正はモールスのみ(音声は予告で)
+}
+function bearingAheadOf(st){
+  // マニューバが進行方向の先にあるか(残距離比較の近似)
+  let mi=0,md=1e12;
+  for(let i=0;i<G.route.length;i+=2){
+    const d=havDist(st,G.route[i]);
+    if(d<md){md=d;mi=i;}
+  }
+  return mi>=G.nearIdx-1;
+}
+function stepGps(tm,avoid){
+  if(avoid){
+    showCard(avoid);
+    if(avoid.code)emit(avoid.code,avoid.say);
+    else if(avoid.say)speakOnly(avoid.say);
+    if(avoid.code==="SOS"||avoid.code==="L"||avoid.code==="R")return;  // 回避優先
+  }else if(performance.now()>=calibUntil)$("topCard").className="";
+  gpsGuide(tm);
+}
+
+// ================= AI認識（COCO-SSD, TF.js CDN・任意ON） =================
+// ・トグルON時のみCDNから遅延読込(約6MB, 初回のみ) — OFFなら依存ゼロのまま
+// ・約700ms周期で320x240を推論。物体名: 回避警告と同期して該当セクターの
+//   物体名を読み上げ。信号色: 画面中央の traffic light 箱内の画素をHSV解析。
+const AI={model:null,loading:false,dets:[],lastT:0,busy:false,
+          lastObj:"",lastSpk:{},sigState:"",sigLastAnn:0};
+const AI_CAN=document.createElement("canvas");AI_CAN.width=320;AI_CAN.height=240;
+const JA_NAME={person:"ひと",bicycle:"じてんしゃ",car:"くるま",motorcycle:"バイク",
+  bus:"バス",truck:"トラック",train:"でんしゃ","traffic light":"しんごう",
+  "fire hydrant":"しょうかせん","stop sign":"ひょうしき",bench:"ベンチ",
+  dog:"いぬ",cat:"ねこ",bird:"とり",backpack:"リュック",umbrella:"かさ",
+  handbag:"かばん",suitcase:"スーツケース",chair:"いす",couch:"ソファ",
+  "potted plant":"うえきばち","dining table":"テーブル",tv:"テレビ",
+  bottle:"ボトル",skateboard:"スケートボード","sports ball":"ボール"};
+function loadScript(src){return new Promise((ok,ng)=>{
+  const el=document.createElement("script");el.src=src;el.onload=ok;el.onerror=ng;
+  document.head.appendChild(el);});}
+async function aiLoad(){
+  if(AI.model||AI.loading)return;
+  AI.loading=true;$("aiStatus").textContent=t("aiLoad");
+  try{
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
+    AI.model=await cocoSsd.load({base:"lite_mobilenet_v2"});
+    $("aiStatus").textContent=t("aiReady");log("AI OK");
+  }catch(e){$("aiStatus").textContent=t("aiNG");$("chkAI").checked=false;log("AI NG: "+e.message);}
+  AI.loading=false;
+}
+$("chkAI").onchange=e=>{if(e.target.checked)aiLoad();};
+$("chkSig").onchange=e=>{if(e.target.checked&&!$("chkAI").checked){$("chkAI").checked=true;aiLoad();}};
+
+async function aiTick(tm){
+  if(!AI.model||AI.busy||tm-AI.lastT<700||video.readyState<2)return;
+  AI.busy=true;AI.lastT=tm;
+  try{
+    AI_CAN.getContext("2d").drawImage(video,0,0,320,240);
+    AI.dets=await AI.model.detect(AI_CAN,6,0.45);
+    if($("chkSig").checked)sigCheck(tm);
+  }catch(e){}
+  AI.busy=false;
+}
+// 回避警告と同期して物体名を読み上げ(同一クラスは6秒に1回)
+function aiNameFor(sectorHint){
+  if(!AI.dets.length)return;
+  let best=null,bs=0;
+  for(const d of AI.dets){
+    if(d.class==="traffic light")continue;
+    const cx=(d.bbox[0]+d.bbox[2]/2)/320, cy=(d.bbox[1]+d.bbox[3]/2)/240;
+    if(cy<0.25)continue;                                  // 上空は無視
+    const area=d.bbox[2]*d.bbox[3]/(320*240);
+    const sec=cx<corr.c0?"L":cx<corr.c1?"C":"R";
+    const w=area*(sec===sectorHint?2:sec==="C"?1.5:1);
+    if(w>bs){bs=w;best=d;}
+  }
+  if(!best||bs<0.015)return;
+  const now=performance.now();
+  if(AI.lastSpk[best.class]&&now-AI.lastSpk[best.class]<6000)return;
+  AI.lastSpk[best.class]=now;
+  const nm=LANG==="ja"?(JA_NAME[best.class]||best.class):best.class;
+  AI.lastObj=best.class;
+  speakOnly(t("objPre")+nm);
+}
+// 信号色: 中央40%内の traffic light 箱をHSV簡易解析(日本の青=緑〜シアン)
+function sigCheck(tm){
+  let box=null,bd=1;
+  for(const d of AI.dets){
+    if(d.class!=="traffic light")continue;
+    const cx=(d.bbox[0]+d.bbox[2]/2)/320;
+    const off=Math.abs(cx-0.5);
+    if(off<0.22&&off<bd){bd=off;box=d.bbox;}
+  }
+  let state="";
+  if(box){
+    const c=AI_CAN.getContext("2d");
+    const x0=Math.max(0,box[0]|0),y0=Math.max(0,box[1]|0);
+    const w=Math.min(320-x0,box[2]|0),h=Math.min(240-y0,box[3]|0);
+    if(w>4&&h>4){
+      const px=c.getImageData(x0,y0,w,h).data;
+      let go=0,red=0,n=0;
+      for(let i=0;i<px.length;i+=8){
+        const r=px[i],g=px[i+1],b=px[i+2];
+        const mx=Math.max(r,g,b);
+        if(mx<70)continue;
+        n++;
+        if(g>r*1.25&&g>60)go++;                 // 緑
+        else if(b>r*1.2&&g>r*1.05)go++;         // 青緑(日本の歩行者青)
+        else if(r>g*1.4&&r>80)red++;
+      }
+      if(n>10){
+        if(go>red*1.5&&go>n*0.04)state="green";
+        else if(red>go*1.5&&red>n*0.04)state="red";
+      }
+    }
+  }
+  const now=performance.now();
+  const changed=state!==AI.sigState;
+  AI.sigState=state;
+  if((changed||now-AI.sigLastAnn>5000)&&$("chkSig").checked){
+    AI.sigLastAnn=now;
+    if(state==="green")speakOnly(t("sigGreen"));
+    else if(state==="red")speakOnly(t("sigRed"));
+    else if(changed)speakOnly(t("sigNone"));
+  }
+}
+
+applyLang();
+setMode("idle");
+setupMotion();
+initCam();
+</script>
+</body>
+</html>
