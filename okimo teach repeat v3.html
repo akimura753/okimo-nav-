@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<title>OKIMO-NAVI T&R v3 — 教示再生＋障害物回避</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --panel2:#1b2129; --line:#2a323c;
+    --ink:#e8ecef; --dim:#8b97a3;
+    --teach:#f5a524; --repeat:#3ddc97; --warn:#ff5d5d; --goal:#6ab7ff;
+    --mono:"SF Mono","Roboto Mono",ui-monospace,monospace;
+    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{max-width:560px;margin:0 auto;padding:10px 12px 40px}
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 10px}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.05em}
+  header h1 small{color:var(--dim);font-weight:400;font-size:11px;margin-left:6px}
+  #modeBadge{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  #modeBadge.teach{border-color:var(--teach);color:var(--teach)}
+  #modeBadge.repeat{border-color:var(--repeat);color:var(--repeat)}
+  #modeBadge.avoid{border-color:var(--warn);color:var(--warn)}
+  .cam{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+  video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  #topCard{position:absolute;top:8px;left:8px;right:8px;color:#fff;font-weight:700;font-size:18px;
+    text-align:center;padding:9px;border-radius:8px;display:none}
+  #topCard.warn{display:block;background:rgba(255,93,93,.92)}
+  #topCard.slow{display:block;background:rgba(245,165,36,.92);color:#1a1204}
+  #topCard.idle{display:block;background:rgba(60,70,82,.85);font-weight:500;font-size:14px}
+  #indicator{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 16px;min-height:112px;transition:border-color .2s}
+  #glyph{font-size:60px;line-height:1;font-weight:700;font-family:var(--mono)}
+  #sigText{text-align:right}
+  #sigLetter{font-family:var(--mono);font-size:28px;font-weight:700}
+  #sigMorse{font-family:var(--mono);font-size:19px;letter-spacing:.2em;color:var(--dim)}
+  #sigLabel{font-size:12px;color:var(--dim);margin-top:2px}
+  #indicator.c-go{border-color:var(--repeat)} #indicator.c-go #glyph{color:var(--repeat)}
+  #indicator.c-turn{border-color:var(--teach)} #indicator.c-turn #glyph{color:var(--teach)}
+  #indicator.c-stop{border-color:var(--warn)} #indicator.c-stop #glyph{color:var(--warn)}
+  #indicator.c-goal{border-color:var(--goal)} #indicator.c-goal #glyph{color:var(--goal)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+  .stat b{display:block;font-family:var(--mono);font-size:15px}
+  .stat span{font-size:9px;color:var(--dim)}
+  .riskbars{display:flex;gap:3px;margin-top:3px;height:8px}
+  .riskbars i{flex:1;background:var(--line);border-radius:2px;overflow:hidden;position:relative}
+  .riskbars i b{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--repeat);display:block}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button{flex:1;min-width:110px;padding:14px 10px;font-size:15px;font-weight:700;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--goal);outline-offset:2px}
+  button.primary-teach{background:var(--teach);border-color:var(--teach);color:#1a1204}
+  button.primary-repeat{background:var(--repeat);border-color:var(--repeat);color:#04160e}
+  button.avoid{background:#7c3aed;border-color:#7c3aed;color:#fff}
+  button.stop{background:var(--warn);border-color:var(--warn);color:#fff}
+  button:disabled{opacity:.35;cursor:default}
+  .row.small button{flex:1;padding:9px;font-size:13px;font-weight:500}
+  #btnMotion{display:none;background:var(--goal);border-color:var(--goal);color:#04121f}
+  details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  summary{padding:10px 12px;font-size:13px;color:var(--dim);cursor:pointer}
+  .setbox{padding:2px 12px 12px;display:grid;gap:11px}
+  .setline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+  .setline input[type=text]{flex:1;font-family:var(--mono);font-size:12px;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .setline input[type=checkbox]{width:22px;height:22px}
+  .setline input[type=range]{flex:1}
+  .setline select{font-size:13px;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  #wsDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dim);margin-right:5px}
+  #wsDot.on{background:var(--repeat)}
+  .hint{font-size:11px;color:var(--dim);line-height:1.5}
+  #kfStrip{display:flex;gap:5px;overflow-x:auto;margin-top:10px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:64px}
+  #kfStrip img{height:52px;border-radius:4px;border:2px solid transparent;flex:0 0 auto}
+  #kfStrip img.now{border-color:var(--repeat)}
+  #kfStrip .empty{color:var(--dim);font-size:12px;align-self:center;padding:0 8px}
+  #log{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;white-space:pre-wrap;max-height:90px;overflow-y:auto}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OKIMO-NAVI T&amp;R<small>v3 · 障害物回避統合</small></h1>
+  <span id="modeBadge">待機</span>
+</header>
+
+<div class="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+  <div id="topCard"></div>
+</div>
+
+<div id="indicator" aria-live="polite">
+  <div id="glyph">·</div>
+  <div id="sigText">
+    <div id="sigLetter">—</div>
+    <div id="sigMorse"></div>
+    <div id="sigLabel">カメラ起動待ち</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="stKF">0/0</b><span>キーフレーム</span></div>
+  <div class="stat"><b id="stCorr">—</b><span>一致度</span></div>
+  <div class="stat"><b id="stWalk">停止</b><span>歩行</span></div>
+  <div class="stat"><b id="stRisk">—</b><span>リスク 左/中/右
+    <span class="riskbars"><i><b id="rbL"></b></i><i><b id="rbC"></b></i><i><b id="rbR"></b></i></span></span>
+  </div>
+</div>
+
+<div class="row">
+  <button id="btnMotion">📱 センサを許可（初回のみ）</button>
+</div>
+<div class="row">
+  <button id="btnTeach" class="primary-teach">● 教示開始</button>
+  <button id="btnRepeat" class="primary-repeat" disabled>▶ 案内開始</button>
+</div>
+<div class="row">
+  <button id="btnAvoid" class="avoid">🚶 回避モード（ルートなし）</button>
+</div>
+<div class="row small">
+  <button id="btnExport" disabled>ルート書き出し</button>
+  <button id="btnImport">ルート読み込み</button>
+  <button id="btnClear" disabled>消去</button>
+  <input type="file" id="fileIn" accept=".json" hidden>
+</div>
+
+<div id="kfStrip"><span class="empty">キーフレームはここに並びます（教示するか、ルートを読み込んでください）</span></div>
+
+<details>
+  <summary>出力・調整</summary>
+  <div class="setbox">
+    <div class="setline"><span>振動（モールス）</span><input type="checkbox" id="optVib" checked></div>
+    <div class="setline"><span>音（600Hz ビープ）</span><input type="checkbox" id="optSnd"></div>
+    <div class="setline"><span>🔊 音声ガイダンス</span><input type="checkbox" id="optTTS" checked></div>
+    <div class="setline"><span>打点間隔を半分（早打ち）</span><input type="checkbox" id="optFast"></div>
+    <div class="setline"><span>微調整モード（直進判定を厳しく）</span><input type="checkbox" id="optFine"></div>
+    <div class="setline"><span>K範囲拡大（多少ズレても直進）</span><input type="checkbox" id="optWideK"></div>
+    <hr style="border-color:var(--line);opacity:.5">
+    <div class="setline"><span>障害物検出の感度</span><input type="range" id="optSens" min="1" max="9" value="5"></div>
+    <div class="setline"><span>停止中も検出する（手ブレ誤報あり）</span><input type="checkbox" id="optAlways"></div>
+    <div class="setline"><span>処理解像度</span>
+      <select id="optRes">
+        <option value="64">低 64×48（軽い）</option>
+        <option value="96" selected>中 96×72（標準）</option>
+        <option value="128">高 128×96（重い）</option>
+      </select>
+    </div>
+    <hr style="border-color:var(--line);opacity:.5">
+    <div class="setline"><span><span id="wsDot"></span>PICO 2W WebSocket</span><input type="checkbox" id="optWS"></div>
+    <div class="setline"><input type="text" id="wsUrl" value="ws://192.168.4.1/ws" aria-label="WebSocket URL"></div>
+    <p class="hint">障害物検出の原理：前進中、近い物ほど画面上で大きく動く（運動視差）。加速度センサで歩行を検知し、歩行中に周辺より強く動く領域を障害物と判定します。<b>ガラス・下り段差・暗所は検出できません。白杖の併用が前提です。</b></p>
+  </div>
+</details>
+
+<div id="log"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   OKIMO-NAVI T&R v3 — 依存ライブラリなし
+   [方向誘導]   1Dエッジプロファイル照合（v1と同じ）
+   [障害物回避] 運動視差 × 歩行速度
+     ・DeviceMotionで歩行強度（加速度変動RMS）を推定
+     ・前進中、近い静止物は画面上で背景より大きく動く（運動視差）
+     ・歩行コリドー（中央60%幅）を左/中/右の3セクターに分け、
+       周辺（背景）の動きを差し引いた「超過運動量」をリスク化
+     ・リスク = 超過運動量 × 歩行速度係数
+   [出力]
+     安全       → K -.-      （直進）
+     左が塞がる → R .-.      「もう少しみぎ」
+     右が塞がる → L .-..     「もう少しひだり」
+     正面・中   → （K継続）  「ゆっくり」
+     危険       → SOS        「とまって、かくにんしてください」
+     解除       →            「すすんでください」
+   優先順位: SOS > 回避L/R > ルートロストS > ルート誘導
+   ================================================================ */
+
+let PW=96, PH=72, MAX_SHIFT=28;
+const PROC_MS=110, MIN_KF_MS=700;
+const LOST_TH=0.35, LOST_MS=2000, ADVANCE_TH=0.45;
+const REPEAT_SIGNAL_MS=2500;
+
+const MORSE={K:"-.-",L:".-..",R:".-.",S:"...",O:"---",SOS:"...---..."};
+const LABEL={K:"直進",L:"左へ",R:"右へ",S:"停止・見失い",O:"目的地に到着",SOS:"危険・停止"};
+const GLYPH={K:"↑",L:"←",R:"→",S:"■",O:"◎",SOS:"⚠"};
+const CLS={K:"c-go",L:"c-turn",R:"c-turn",S:"c-stop",O:"c-goal",SOS:"c-stop"};
+
+let mode="idle";                 // idle | teach | repeat | avoid
+let route=[], kfIndex=0;
+let lastKFTime=0, lostSince=0;
+let lastSignal="", lastSignalTime=0;
+let ws=null, audioCtx=null;
+
+// ---- 歩行（加速度） ----
+let accWin=[];                   // {t, m} 直近1.5秒
+let walkLevel=0;                 // 0..1 歩行強度
+let motionOK=false;
+
+// ---- 運動視差 ----
+let prevGray=null;
+let emaL=0, emaC=0, emaR=0;      // セクター別リスクEMA
+let sosLatch=false, sosClearSince=0;
+let avoidLatch={code:"",until:0};
+
+const $=id=>document.getElementById(id);
+const video=$("video"), overlay=$("overlay");
+let work=document.createElement("canvas"), wctx;
+function setupWork(){ work.width=PW; work.height=PH; wctx=work.getContext("2d",{willReadFrequently:true}); }
+setupWork();
+
+function log(s){ const el=$("log"); el.textContent=(new Date().toTimeString().slice(0,8))+" "+s+"\n"+el.textContent.slice(0,1500); }
+
+// ================= カメラ =================
+async function initCam(){
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=st; await video.play();
+    $("sigLabel").textContent="準備完了";
+    log("カメラ起動 OK");
+    requestAnimationFrame(loop);
+  }catch(e){
+    $("sigLabel").textContent="カメラ不可: "+e.name;
+    log("getUserMedia 失敗: "+e.message);
+  }
+}
+
+// ================= 加速度（歩行推定） =================
+function onMotion(ev){
+  const a=ev.accelerationIncludingGravity;
+  if(!a || a.x===null) return;
+  const m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z);
+  const now=performance.now();
+  accWin.push({t:now,m});
+  while(accWin.length && now-accWin[0].t>1500) accWin.shift();
+  if(accWin.length<8) return;
+  // 平均からの変動RMS = 歩行の揺れ。静止:~0.1 / ゆっくり:~0.8 / 普通:~1.5-3 m/s^2
+  let mean=0; for(const s of accWin) mean+=s.m; mean/=accWin.length;
+  let v=0; for(const s of accWin) v+=(s.m-mean)*(s.m-mean);
+  const rms=Math.sqrt(v/accWin.length);
+  walkLevel=Math.max(0,Math.min(1,(rms-0.25)/2.2));
+  motionOK=true;
+}
+function setupMotion(){
+  if(typeof DeviceMotionEvent!=="undefined" &&
+     typeof DeviceMotionEvent.requestPermission==="function"){
+    // iOS: ユーザー操作で許可が必要
+    $("btnMotion").style.display="block";
+    $("btnMotion").onclick=async()=>{
+      try{
+        const r=await DeviceMotionEvent.requestPermission();
+        if(r==="granted"){ window.addEventListener("devicemotion",onMotion);
+          $("btnMotion").style.display="none"; log("加速度センサ 許可OK"); }
+        else log("加速度センサ 拒否されました");
+      }catch(e){ log("センサ許可エラー: "+e.message); }
+    };
+  }else{
+    window.addEventListener("devicemotion",onMotion);
+  }
+}
+
+// ================= 画像処理 =================
+let grayBuf=null;
+function grab(){
+  wctx.drawImage(video,0,0,PW,PH);
+  const d=wctx.getImageData(0,0,PW,PH).data;
+  if(!grayBuf||grayBuf.length!==PW*PH) grayBuf=new Float32Array(PW*PH);
+  const g=grayBuf;
+  for(let i=0,p=0;i<d.length;i+=4,p++) g[p]=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+  const prof=new Float32Array(PW);
+  for(let x=1;x<PW-1;x++){ let s=0; for(let y=0;y<PH;y++) s+=Math.abs(g[y*PW+x+1]-g[y*PW+x-1]); prof[x]=s; }
+  let m=0; for(let x=0;x<PW;x++) m+=prof[x]; m/=PW;
+  let v=0; for(let x=0;x<PW;x++){ prof[x]-=m; v+=prof[x]*prof[x]; }
+  v=Math.sqrt(v/PW)||1; for(let x=0;x<PW;x++) prof[x]/=v;
+  return {prof, gray:g};
+}
+
+// --- 運動視差セクター解析 ---
+// 歩行コリドー: 横20-80% を3等分、縦25-88%
+// 背景基準: コリドーの外（左右10%ずつ＋上部）の平均差分
+function analyzeSectors(gray){
+  if(!prevGray||prevGray.length!==gray.length){ prevGray=Float32Array.from(gray); return null; }
+  const x0=(PW*0.20)|0, x3=(PW*0.80)|0, y0=(PH*0.25)|0, y1=(PH*0.88)|0;
+  const x1=x0+(((x3-x0)/3)|0), x2=x0+(((x3-x0)*2/3)|0);
+  let sL=0,nL=0,sC=0,nC=0,sR=0,nR=0,sBG=0,nBG=0;
+  for(let y=0;y<PH;y++){
+    for(let x=0;x<PW;x++){
+      const diff=Math.abs(gray[y*PW+x]-prevGray[y*PW+x]);
+      const inCorr=(y>=y0&&y<y1&&x>=x0&&x<x3);
+      if(inCorr){
+        if(x<x1){sL+=diff;nL++;} else if(x<x2){sC+=diff;nC++;} else {sR+=diff;nR++;}
+      }else if(y<y0||x<x0*0.8||x>=PW-(PW-x3)*0.8){
+        sBG+=diff;nBG++;
+      }
+    }
+  }
+  prevGray.set(gray);
+  const bg=nBG?sBG/nBG:0;
+  // 背景（自己運動による全体の動き）を差し引いた超過分＝近接物
+  const ex=(s,n)=>Math.max(0,(n?s/n:0)-bg*1.15)/255;
+  return {L:ex(sL,nL),C:ex(sC,nC),R:ex(sR,nR)};
+}
+
+// ================= 相関照合（T&R） =================
+function matchShift(a,b){
+  let best=-2,bestS=0;
+  for(let s=-MAX_SHIFT;s<=MAX_SHIFT;s++){
+    let c=0,n=0; const lo=Math.max(0,-s),hi=Math.min(PW,PW-s);
+    for(let x=lo;x<hi;x++){c+=a[x]*b[x+s];n++;}
+    c/=n; if(c>best){best=c;bestS=s;}
+  }
+  return {corr:best,shift:bestS};
+}
+
+// ================= メインループ =================
+let lastProc=0;
+function loop(t){
+  requestAnimationFrame(loop);
+  if(t-lastProc<PROC_MS||video.readyState<2) return;
+  lastProc=t;
+  const {prof,gray}=grab();
+
+  // ---- 歩行表示 ----
+  const walking = $("optAlways").checked ? true : walkLevel>0.12;
+  $("stWalk").textContent = !motionOK ? "ｾﾝｻ無" :
+    walkLevel<0.12?"停止":walkLevel<0.4?"ゆっくり":walkLevel<0.75?"普通":"速い";
+
+  // ---- 障害物リスク ----
+  let avoid=null;
+  if(mode==="repeat"||mode==="avoid"){
+    const sec=analyzeSectors(gray);
+    if(sec){
+      const speedFactor = motionOK ? (0.35+0.65*walkLevel) : 0.7;  // センサ無しでも中間値で動作
+      const a=0.55;
+      emaL=a*emaL+(1-a)*sec.L*speedFactor;
+      emaC=a*emaC+(1-a)*sec.C*speedFactor;
+      emaR=a*emaR+(1-a)*sec.R*speedFactor;
+    }
+    drawRisk(emaL,emaC,emaR);
+    if(walking) avoid=decideAvoid(t);
+    else { $("topCard").className="idle"; $("topCard").textContent="停止中 — 検出休止（歩き出すと再開）"; }
+  }else{
+    $("topCard").className=""; emaL=emaC=emaR=0; prevGray=null;
+    drawRisk(0,0,0);
+  }
+
+  if(mode==="teach") stepTeach(prof,t);
+  else if(mode==="repeat") stepRepeat(prof,t,avoid);
+  else if(mode==="avoid") stepAvoid(t,avoid);
+
+  drawOverlay(prof);
+}
+
+// ---- リスク → 行動決定 ----
+function decideAvoid(t){
+  const sens=parseInt($("optSens").value)||5;
+  const TH=0.075-sens*0.006;          // 警告しきい値
+  const TH_SOS=TH*2.4;                 // 危険しきい値
+  const L=emaL,C=emaC,R=emaR;
+  const maxv=Math.max(L,C,R);
+
+  // SOS: 中央が危険域 or 全域が塞がる
+  if(C>TH_SOS || (L>TH_SOS&&R>TH_SOS)){
+    sosLatch=true; sosClearSince=0;
+    return {code:"SOS", say:"とまって、かくにんしてください", card:"warn", msg:"⚠ 接触リスク大 — 停止"};
+  }
+  // SOSラッチ解除判定（1.5秒静穏で解除）
+  if(sosLatch){
+    if(maxv<TH*0.6){
+      if(!sosClearSince) sosClearSince=t;
+      if(t-sosClearSince>1500){ sosLatch=false; return {code:"K", say:"すすんでください", card:"", msg:""}; }
+    }else sosClearSince=0;
+    return {code:"SOS", say:"", card:"warn", msg:"⚠ 停止 — 確認中"};
+  }
+  // 片側回避
+  if(C>TH){
+    // 正面に障害物 → 空いている側へ
+    if(L<R*0.8) return {code:"L", say:"もうすこし、ひだり", card:"slow", msg:"正面に障害物 → 左へ"};
+    if(R<L*0.8) return {code:"R", say:"もうすこし、みぎ", card:"slow", msg:"正面に障害物 → 右へ"};
+    return {code:null, say:"ゆっくり", card:"slow", msg:"前方注意 — ゆっくり"};
+  }
+  if(L>TH && L>R*1.4) return {code:"R", say:"もうすこし、みぎ", card:"slow", msg:"左に障害物 → 右へ"};
+  if(R>TH && R>L*1.4) return {code:"L", say:"もうすこし、ひだり", card:"slow", msg:"右に障害物 → 左へ"};
+  return null;
+}
+
+// ================= 教示 =================
+function stepTeach(prof,t){
+  if(route.length===0){ saveKF(prof); return; }
+  const {corr}=matchShift(prof,route[route.length-1].profile);
+  $("stCorr").textContent=corr.toFixed(2);
+  if(corr<0.78 && t-lastKFTime>MIN_KF_MS) saveKF(prof);
+}
+function saveKF(prof){
+  lastKFTime=performance.now();
+  const thumb=work.toDataURL("image/jpeg",0.5);
+  route.push({profile:prof,thumb});
+  const img=document.createElement("img"); img.src=thumb;
+  if(route.length===1) $("kfStrip").innerHTML="";
+  $("kfStrip").appendChild(img);
+  $("stKF").textContent=route.length+"保存";
+  log("KF #"+route.length+" 保存");
+}
+
+// ================= 再生（回避を統合） =================
+function stepRepeat(prof,t,avoid){
+  // --- 優先1: 障害物回避 ---
+  if(avoid){
+    showCard(avoid);
+    if(avoid.code) emit(avoid.code, avoid.say);
+    else if(avoid.say) speakOnly(avoid.say);
+    if(avoid.code==="SOS"||avoid.code==="L"||avoid.code==="R") return; // 回避中はルート誘導を保留
+  }else{
+    $("topCard").className="";
+  }
+
+  // --- 優先2: ルート誘導 ---
+  const cur=matchShift(prof,route[kfIndex].profile);
+  let best=cur,bestIdx=kfIndex;
+  for(let k=1;k<=2;k++){ if(kfIndex+k<route.length){
+    const m=matchShift(prof,route[kfIndex+k].profile);
+    if(m.corr>best.corr&&m.corr>ADVANCE_TH){best=m;bestIdx=kfIndex+k;} } }
+  if(bestIdx!==kfIndex){kfIndex=bestIdx;markStrip();log("→ KF #"+(kfIndex+1));}
+  $("stKF").textContent=(kfIndex+1)+"/"+route.length;
+  $("stCorr").textContent=best.corr.toFixed(2);
+
+  if(best.corr<LOST_TH){ if(!lostSince)lostSince=t; if(t-lostSince>LOST_MS){emit("S","ていし");return;} }
+  else lostSince=0;
+
+  if(kfIndex===route.length-1&&best.corr>0.6){ emit("O","もくてきちに、とうちゃくしました"); stopRepeat(true); return; }
+
+  let dead=5;
+  if($("optFine").checked)dead=3;
+  if($("optWideK").checked)dead=10;
+  const code=best.shift>dead?"R":best.shift<-dead?"L":"K";
+  emit(code, code==="R"?"みぎ":code==="L"?"ひだり":"");
+  window._lastShift=best.shift;
+}
+
+// ================= 回避モード（ルートなし） =================
+function stepAvoid(t,avoid){
+  if(avoid){
+    showCard(avoid);
+    if(avoid.code) emit(avoid.code, avoid.say);
+    else if(avoid.say) speakOnly(avoid.say);
+  }else{
+    $("topCard").className="";
+    emit("K","");
+  }
+}
+
+function showCard(av){
+  if(av.card){ $("topCard").className=av.card; $("topCard").textContent=av.msg; }
+  else $("topCard").className="";
+}
+
+// ================= 出力 =================
+function emit(code,say){
+  const now=performance.now();
+  if(code===lastSignal&&now-lastSignalTime<REPEAT_SIGNAL_MS) return;
+  lastSignal=code; lastSignalTime=now;
+  $("glyph").textContent=GLYPH[code];
+  $("sigLetter").textContent=code;
+  $("sigMorse").textContent=MORSE[code].replace(/\./g,"·").replace(/-/g,"—");
+  $("sigLabel").textContent=LABEL[code];
+  $("indicator").className=CLS[code];
+  if($("optVib").checked&&navigator.vibrate) navigator.vibrate(morsePattern(MORSE[code]));
+  if($("optSnd").checked) beepMorse(MORSE[code]);
+  if($("optTTS").checked&&say) speak(say);
+  if($("optWS").checked&&ws&&ws.readyState===1){try{ws.send(code);}catch(e){}}
+}
+function speakOnly(say){ if($("optTTS").checked) speak(say); }
+
+function units(){ return $("optFast").checked?{D:55,H:165,G:55}:{D:90,H:270,G:90}; }
+function morsePattern(m){const u=units();const p=[];for(const c of m){p.push(c==="."?u.D:u.H);p.push(u.G);}p.pop();return p;}
+function beepMorse(m){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const u=units();let t=audioCtx.currentTime;
+  for(const c of m){const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.frequency.value=600;o.connect(g);g.connect(audioCtx.destination);
+    const dur=(c==="."?u.D:u.H)/1000;g.gain.setValueAtTime(0.25,t);
+    o.start(t);o.stop(t+dur);t+=dur+u.G/1000;}}
+
+let lastSpokeT=0, lastSpokeText="";
+function speak(text){
+  if(!("speechSynthesis" in window))return;
+  const now=performance.now();
+  if(text===lastSpokeText&&now-lastSpokeT<2500)return;
+  lastSpokeT=now;lastSpokeText=text;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="ja-JP";u.rate=1.15;
+  speechSynthesis.cancel();speechSynthesis.speak(u);
+}
+
+// ================= 描画 =================
+function drawRisk(L,C,R){
+  const f=v=>Math.min(100,v*900);
+  const set=(id,v)=>{const el=$(id);el.style.width=f(v)+"%";el.style.background=v>0.05?"var(--warn)":v>0.025?"var(--teach)":"var(--repeat)";};
+  set("rbL",L);set("rbC",C);set("rbR",R);
+  $("stRisk").textContent=(Math.max(L,C,R)*100).toFixed(0);
+}
+function drawOverlay(prof){
+  const c=overlay,x=c.getContext("2d");
+  if(c.width!==c.clientWidth){c.width=c.clientWidth;c.height=c.clientHeight;}
+  x.clearRect(0,0,c.width,c.height);
+  x.strokeStyle="rgba(61,220,151,.9)";x.lineWidth=1.5;x.beginPath();
+  for(let i=0;i<PW;i++){const px=i/PW*c.width,py=c.height-8-Math.max(-2,Math.min(2,prof[i]))*12-24;i?x.lineTo(px,py):x.moveTo(px,py);}
+  x.stroke();
+  x.strokeStyle="rgba(255,255,255,.35)";x.beginPath();x.moveTo(c.width/2,0);x.lineTo(c.width/2,c.height);x.stroke();
+  // 歩行コリドー3セクター
+  if(mode==="repeat"||mode==="avoid"){
+    const cx0=c.width*0.20,cx3=c.width*0.80,cy0=c.height*0.25,cy1=c.height*0.88;
+    const w3=(cx3-cx0)/3;
+    const cols=[emaL,emaC,emaR];
+    for(let i=0;i<3;i++){
+      const v=cols[i];
+      x.fillStyle=v>0.05?"rgba(255,93,93,.28)":v>0.025?"rgba(245,165,36,.20)":"rgba(61,220,151,.08)";
+      x.fillRect(cx0+w3*i,cy0,w3,cy1-cy0);
+      x.strokeStyle="rgba(255,255,255,.25)";x.lineWidth=1;
+      x.strokeRect(cx0+w3*i,cy0,w3,cy1-cy0);
+    }
+  }
+  if(mode==="repeat"&&typeof window._lastShift==="number"){
+    const tx=c.width/2+window._lastShift/PW*c.width;
+    x.strokeStyle="rgba(245,165,36,.95)";x.lineWidth=3;
+    x.beginPath();x.moveTo(tx,c.height*0.25);x.lineTo(tx,c.height*0.75);x.stroke();
+  }
+}
+
+// ================= UI状態 =================
+function markStrip(){[...$("kfStrip").querySelectorAll("img")].forEach((im,i)=>im.classList.toggle("now",i===kfIndex));}
+function setMode(m){
+  mode=m;const b=$("modeBadge");
+  b.className=m==="teach"?"teach":m==="repeat"?"repeat":m==="avoid"?"avoid":"";
+  b.textContent=m==="teach"?"教示中":m==="repeat"?"案内中":m==="avoid"?"回避のみ":"待機";
+  $("btnTeach").textContent=m==="teach"?"■ 教示終了":"● 教示開始";
+  $("btnTeach").className=m==="teach"?"stop":"primary-teach";
+  $("btnRepeat").textContent=m==="repeat"?"■ 案内停止":"▶ 案内開始";
+  $("btnRepeat").className=m==="repeat"?"stop":"primary-repeat";
+  $("btnAvoid").textContent=m==="avoid"?"■ 回避モード停止":"🚶 回避モード（ルートなし）";
+  $("btnAvoid").className=m==="avoid"?"stop":"avoid";
+  $("btnRepeat").disabled=(m==="teach"||m==="avoid")||route.length<2;
+  $("btnTeach").disabled=(m==="repeat"||m==="avoid");
+  $("btnAvoid").disabled=(m==="teach"||m==="repeat");
+  $("btnExport").disabled=$("btnClear").disabled=route.length===0||m!=="idle";
+}
+
+// ================= ボタン =================
+$("btnTeach").onclick=()=>{
+  if(mode==="teach"){setMode("idle");log("教示終了: KF "+route.length+"枚");}
+  else{route=[];kfIndex=0;$("kfStrip").innerHTML="";setMode("teach");
+    $("sigLabel").textContent="ルートを歩いてください";$("indicator").className="";
+    $("glyph").textContent="●";$("sigLetter").textContent="REC";$("sigMorse").textContent="";log("教示開始");}
+};
+$("btnRepeat").onclick=()=>{
+  if(mode==="repeat")stopRepeat(false);
+  else{kfIndex=0;lostSince=0;lastSignal="";prevGray=null;emaL=emaC=emaR=0;sosLatch=false;
+    setMode("repeat");markStrip();if($("optWS").checked)connectWS();
+    log("案内開始（"+route.length+" KF）— 障害物回避 有効");}
+};
+$("btnAvoid").onclick=()=>{
+  if(mode==="avoid"){setMode("idle");$("topCard").className="";$("glyph").textContent="·";
+    $("indicator").className="";$("sigLabel").textContent="停止しました";log("回避モード停止");}
+  else{prevGray=null;emaL=emaC=emaR=0;sosLatch=false;lastSignal="";
+    setMode("avoid");log("回避モード開始 — 胸の前に固定して歩いてください");}
+};
+function stopRepeat(goal){setMode("idle");$("topCard").className="";
+  if(!goal){$("sigLabel").textContent="案内停止";$("indicator").className="";$("glyph").textContent="·";}
+  log(goal?"◎ 到着":"案内停止");}
+$("btnClear").onclick=()=>{route=[];$("kfStrip").innerHTML='<span class="empty">キーフレームはここに並びます</span>';
+  $("stKF").textContent="0/0";setMode("idle");log("ルート消去");};
+
+// ================= 解像度 =================
+$("optRes").onchange=e=>{
+  const w=parseInt(e.target.value);PW=w;PH=Math.round(w*0.75);
+  MAX_SHIFT=Math.round(w*0.29);setupWork();prevGray=null;grayBuf=null;
+  log("解像度 "+PW+"×"+PH+" に変更（既存ルートは再教示推奨）");
+};
+
+// ================= 書き出し/読み込み =================
+$("btnExport").onclick=()=>{
+  const data={v:3,res:PW,created:new Date().toISOString(),
+    kf:route.map(k=>({p:[...k.profile].map(x=>+x.toFixed(4)),t:k.thumb}))};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:"application/json"}));
+  a.download="okimo_route_"+Date.now()+".json";a.click();
+  log("ルート書き出し（"+route.length+" KF）");
+};
+$("btnImport").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const data=JSON.parse(await f.text());
+    if(data.res&&data.res!==PW){PW=data.res;PH=Math.round(PW*0.75);MAX_SHIFT=Math.round(PW*0.29);
+      setupWork();grayBuf=null;$("optRes").value=String(PW);log("ルートの解像度 "+PW+" に合わせました");}
+    route=data.kf.map(k=>({profile:new Float32Array(k.p),thumb:k.t}));
+    $("kfStrip").innerHTML="";route.forEach(k=>{const im=document.createElement("img");im.src=k.thumb;$("kfStrip").appendChild(im);});
+    $("stKF").textContent=route.length+"読込";setMode("idle");
+    log("ルート読み込み: "+route.length+" KF");
+  }catch(err){log("読み込み失敗: "+err.message);}
+};
+
+// ================= PICO WebSocket =================
+function connectWS(){
+  try{if(ws)ws.close();ws=new WebSocket($("wsUrl").value);
+    ws.onopen=()=>{$("wsDot").className="on";log("PICO 接続 OK");};
+    ws.onclose=()=>{$("wsDot").className="";};
+    ws.onerror=()=>{$("wsDot").className="";log("PICO 接続エラー");};
+  }catch(e){log("WS: "+e.message);}
+}
+$("optWS").onchange=e=>{if(e.target.checked)connectWS();else if(ws)ws.close();};
+
+setMode("idle");
+setupMotion();
+initCam();
+</script>
+</body>
+</html>
